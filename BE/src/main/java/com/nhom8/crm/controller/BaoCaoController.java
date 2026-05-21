@@ -7,6 +7,8 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
@@ -23,10 +25,12 @@ public class BaoCaoController {
     private final ChienDichRepository chienDichRepository;
     private final HopDongRepository hopDongRepository;
     private final ChiPhiChienDichRepository chiPhiRepository;
+    private final TaiKhoanRepository taiKhoanRepository;
 
     @GetMapping("/tong-quan")
     @Operation(summary = "Thống kê tổng quan dashboard")
-    public ResponseEntity<ApiResponse<Map<String, Object>>> tongQuan() {
+    public ResponseEntity<ApiResponse<Map<String, Object>>> tongQuan(
+            @AuthenticationPrincipal UserDetails userDetails) {
         Map<String, Object> stats = new HashMap<>();
 
         // Thống kê khách hàng theo trạng thái
@@ -41,14 +45,45 @@ public class BaoCaoController {
         stats.put("chienDichDangChay",
                 chienDichRepository.findByTrangThaiChienDichAndDaXoaFalse("Đang chạy").size());
 
-        // Thống kê doanh thu
-        BigDecimal doanhThu = hopDongRepository.sumDoanhThuThang();
-        stats.put("tongDoanhThu", doanhThu);
+        // Thống kê doanh thu - chỉ Manager và Admin mới có quyền xem doanh thu
+        boolean hasPrivilege = userDetails != null && userDetails.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN") || a.getAuthority().equals("ROLE_MANAGER"));
+        if (hasPrivilege) {
+            BigDecimal doanhThu = hopDongRepository.sumDoanhThuThang();
+            stats.put("tongDoanhThu", doanhThu);
+        } else {
+            stats.put("tongDoanhThu", null);
+        }
 
         // Khách đang dùng thử
         stats.put("khachDangDungThu", khachHangRepository.findDangDungThu().size());
 
+        var taiKhoanList = taiKhoanRepository.findAll();
+        stats.put("tongNguoiDung", taiKhoanList.size());
+        stats.put("nguoiDungHoatDong", taiKhoanList.stream()
+                .filter(tk -> !"Bị khóa".equalsIgnoreCase(tk.getTrangThai()))
+                .count());
+        stats.put("nguoiDungBiKhoa", taiKhoanList.stream()
+                .filter(tk -> "Bị khóa".equalsIgnoreCase(tk.getTrangThai()))
+                .count());
+        stats.put("soAdmin", taiKhoanList.stream()
+                .filter(tk -> tk.getVaiTro() != null && "ADMIN".equals(normalizeRole(tk.getVaiTro().getTenVaiTro())))
+                .count());
+        stats.put("soTruongPhong", taiKhoanList.stream()
+                .filter(tk -> tk.getVaiTro() != null && "MANAGER".equals(normalizeRole(tk.getVaiTro().getTenVaiTro())))
+                .count());
+        stats.put("soNhanVien", taiKhoanList.stream()
+                .filter(tk -> tk.getVaiTro() != null && "EMPLOYEE".equals(normalizeRole(tk.getVaiTro().getTenVaiTro())))
+                .count());
+
         return ResponseEntity.ok(ApiResponse.ok(stats));
+    }
+
+    private String normalizeRole(String roleName) {
+        String role = roleName == null ? "" : roleName.trim().toUpperCase();
+        if (role.contains("ADMIN")) return "ADMIN";
+        if (role.contains("MANAGER") || role.contains("TRUONG") || role.contains("TRƯỞNG")) return "MANAGER";
+        return "EMPLOYEE";
     }
 
     @GetMapping("/chien-dich/{id}/roi")

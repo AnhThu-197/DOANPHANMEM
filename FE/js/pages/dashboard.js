@@ -35,6 +35,31 @@ function renderDashboardHTML(stats, customers, user) {
         `;
     }).join('');
 
+    // Differentiate 4th card based on role for data privacy and premium display
+    let fourthCardHTML = '';
+    if (user && user.role === 'employee') {
+        const khachChinhThuc = stats.khachChinhThuc ?? 0;
+        fourthCardHTML = `
+            <div class="card">
+                <div class="card-info">
+                    <h3>Khách hàng chính thức</h3>
+                    <p id="dashOfficialCustomers">${khachChinhThuc}</p>
+                </div>
+                <div class="card-icon" style="background: #dcfce7; color: #166534;"><i class="fas fa-user-check"></i></div>
+            </div>
+        `;
+    } else {
+        fourthCardHTML = `
+            <div class="card">
+                <div class="card-info">
+                    <h3>Doanh thu tháng</h3>
+                    <p id="dashRevenue" style="font-size: 16px;">${doanhThu}</p>
+                </div>
+                <div class="card-icon"><i class="fas fa-chart-line"></i></div>
+            </div>
+        `;
+    }
+
     return `
         <h2 class="page-title">Tổng quan</h2>
         <div class="cards-container">
@@ -59,13 +84,7 @@ function renderDashboardHTML(stats, customers, user) {
                 </div>
                 <div class="card-icon"><i class="fas fa-hourglass-start"></i></div>
             </div>
-            <div class="card">
-                <div class="card-info">
-                    <h3>Doanh thu tháng</h3>
-                    <p id="dashRevenue" style="font-size: 16px;">${doanhThu}</p>
-                </div>
-                <div class="card-icon"><i class="fas fa-chart-line"></i></div>
-            </div>
+            ${fourthCardHTML}
         </div>
         <div class="table-container">
             <div class="table-header">
@@ -90,14 +109,118 @@ function renderDashboardHTML(stats, customers, user) {
     `;
 }
 
+function renderAdminDashboardHTML(stats) {
+    const totalUsers = Number(stats.tongNguoiDung ?? 0);
+    const activeUsers = Number(stats.nguoiDungHoatDong ?? 0);
+    const lockedUsers = Number(stats.nguoiDungBiKhoa ?? 0);
+    const adminCount = Number(stats.soAdmin ?? 0);
+    const managerCount = Number(stats.soTruongPhong ?? 0);
+    const employeeCount = Number(stats.soNhanVien ?? 0);
+    const totalCustomers = Number(stats.tongKhachHang ?? 0);
+    const totalCampaigns = Number(stats.tongChienDich ?? 0);
+    const recentLogs = DATA.auditLogs ? DATA.auditLogs.slice(-8).reverse() : [];
+
+    const roleRows = [
+        { label: 'Admin', count: adminCount, color: '#2B4856', icon: 'user-shield' },
+        { label: 'Trưởng phòng', count: managerCount, color: '#3d5a6b', icon: 'user-tie' },
+        { label: 'Nhân viên', count: employeeCount, color: '#4f6f80', icon: 'user' }
+    ];
+
+    return `
+        <h2 class="page-title">Tổng quan Admin</h2>
+
+        <div class="cards-container">
+            <div class="card">
+                <div class="card-info">
+                    <h3>Tổng người dùng</h3>
+                    <p>${totalUsers}</p>
+                    <small>${activeUsers} hoạt động, ${lockedUsers} bị khóa</small>
+                </div>
+                <div class="card-icon"><i class="fas fa-users"></i></div>
+            </div>
+            <div class="card">
+                <div class="card-info">
+                    <h3>Khách hàng</h3>
+                    <p>${totalCustomers}</p>
+                    <small>Dữ liệu từ API tổng quan</small>
+                </div>
+                <div class="card-icon"><i class="fas fa-address-book"></i></div>
+            </div>
+            <div class="card">
+                <div class="card-info">
+                    <h3>Chiến dịch</h3>
+                    <p>${totalCampaigns}</p>
+                    <small>${stats.chienDichDangChay ?? 0} đang chạy</small>
+                </div>
+                <div class="card-icon"><i class="fas fa-bullhorn"></i></div>
+            </div>
+            <div class="card">
+                <div class="card-info">
+                    <h3>Vai trò</h3>
+                    <p>${adminCount + managerCount + employeeCount}</p>
+                    <small>Admin / Trưởng phòng / Nhân viên</small>
+                </div>
+                <div class="card-icon"><i class="fas fa-user-shield"></i></div>
+            </div>
+        </div>
+
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
+            <div class="table-container">
+                <div class="table-header"><h3>Phân bổ vai trò</h3></div>
+                <div style="display:flex; flex-direction:column; gap:15px;">
+                    ${roleRows.map(role => {
+                        const percent = totalUsers > 0 ? Math.round((role.count / totalUsers) * 100) : 0;
+                        return `
+                            <div>
+                                <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+                                    <span><i class="fas fa-${role.icon}" style="color:${role.color};"></i> ${role.label}</span>
+                                    <strong>${role.count} (${percent}%)</strong>
+                                </div>
+                                <div style="background:#f1f5f9; height:10px; border-radius:999px; overflow:hidden;">
+                                    <div style="background:${role.color}; height:100%; width:${percent}%;"></div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            </div>
+
+            <div class="table-container">
+                <div class="table-header"><h3>Truy cập nhanh</h3></div>
+                <div style="display:flex; flex-direction:column; gap:10px;">
+                    <button class="btn btn-primary" onclick="loadPage('user-management')">
+                        <i class="fas fa-users-cog"></i> Quản lý người dùng
+                    </button>
+                    <button class="btn btn-secondary" onclick="loadPage('settings')">
+                        <i class="fas fa-cog"></i> Cấu hình hệ thống
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="table-container" style="margin-top:20px;">
+            <div class="table-header"><h3>Hoạt động gần đây</h3></div>
+            ${recentLogs.length ? `
+                <table>
+                    <thead><tr><th>Thời gian</th><th>Hành động</th><th>Mô tả</th></tr></thead>
+                    <tbody>
+                        ${recentLogs.map(log => `
+                            <tr>
+                                <td>${log.timestamp}</td>
+                                <td>${log.action}</td>
+                                <td>${log.description}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            ` : '<div style="text-align:center; padding:30px; color:#94a3b8;">Chưa có hoạt động nào.</div>'}
+        </div>
+    `;
+}
+
 async function loadDashboard() {
     const mainContent = document.getElementById('mainContent');
     const user = AUTH.getCurrentUser();
-
-    if (user && user.role === 'admin') {
-        loadAdminDashboard();
-        return;
-    }
 
     mainContent.innerHTML = `
         <h2 class="page-title">Tổng quan</h2>
@@ -116,11 +239,15 @@ async function loadDashboard() {
 
     if (user && user.authSource === 'api') {
         try {
-            const [statsRes, customersRes] = await Promise.all([
-                API_SERVICES.baoCao.tongQuan(),
-                API_SERVICES.khachHang.list()
-            ]);
-            const stats     = statsRes.data ?? statsRes;
+            const statsRes = await API_SERVICES.baoCao.tongQuan();
+            const stats = statsRes.data ?? statsRes;
+
+            if (user.role === 'admin') {
+                mainContent.innerHTML = renderAdminDashboardHTML(stats);
+                return;
+            }
+
+            const customersRes = await API_SERVICES.khachHang.list();
             const customers = Array.isArray(customersRes.data)
                 ? customersRes.data
                 : (customersRes.data?.content ?? customersRes.data ?? []);
@@ -132,25 +259,12 @@ async function loadDashboard() {
     }
 
     // Fallback mock
+    if (user && user.role === 'admin') {
+        loadAdminDashboard();
+        return;
+    }
+
     const stats = {
-        tongKhachHang:     DATA.customers.filter(c => !c.deleted).length,
-        chienDichDangChay: DATA.campaigns.filter(c => !c.deleted).length,
-        tongDoanhThu:      null,
-        khachDangDungThu:  DATA.customers.filter(c => c.trialStartDate && !c.deleted).length
-    };
-    const customers = DATA.customers.filter(c => !c.deleted).map(c => ({
-        maKhachHang:    c.id,
-        hoTen:          c.name,
-        email:          c.email,
-        soDienThoai:    c.phone,
-        trangThaiKhach: getStatusLabel(c.status)
-    }));
-    mainContent.innerHTML = renderDashboardHTML(stats, customers, user);
-}
-
-function loadAdminDashboard() {
-    const mainContent = document.getElementById('mainContent');
-
     if (!DATA.users) {
         DATA.users = [
             { id: 1, username: 'admin',    name: 'Quản trị viên',   email: 'admin@crm.com',    role: 'admin',    status: 'active', createdDate: '01/01/2024', lastLogin: '27/03/2026 10:30' },

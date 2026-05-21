@@ -61,6 +61,7 @@ public class SecurityConfig {
                 // Admin only
                 .requestMatchers("/admin/**").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.DELETE, "/nhan-vien/**").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.GET, "/bao-cao/tong-quan").authenticated()
                 // Manager + Admin
                 .requestMatchers("/bao-cao/**").hasAnyRole("ADMIN", "MANAGER")
                 // All authenticated users
