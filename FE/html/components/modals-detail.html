@@ -382,9 +382,12 @@
 <!-- Modal Thông báo -->
 <div id="notificationModal" class="modal">
     <div class="modal-content" style="max-width: 600px; max-height: 80vh;">
-        <div class="modal-header">
+        <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center;">
             <h2>Thông báo</h2>
-            <button class="close-btn" onclick="closeModal('notificationModal')">&times;</button>
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <button class="btn btn-secondary" onclick="markAllAsRead()" style="padding: 6px 12px; font-size: 13px; background: #e2e8f0; border: none; border-radius: 4px; color: #334155; cursor: pointer; font-weight: 500;">Đọc tất cả</button>
+                <button class="close-btn" onclick="closeModal('notificationModal')">&times;</button>
+            </div>
         </div>
         <div id="notificationList" style="max-height: 500px; overflow-y: auto;"></div>
     </div>

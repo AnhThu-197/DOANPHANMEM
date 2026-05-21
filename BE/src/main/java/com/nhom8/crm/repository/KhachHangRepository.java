@@ -36,4 +36,8 @@ public interface KhachHangRepository extends JpaRepository<KhachHang, Integer>,
     @Query("SELECT kh FROM KhachHang kh WHERE kh.daXoa = false AND " +
            "kh.trangThaiDungThu = 'Đang dùng thử'")
     List<KhachHang> findDangDungThu();
+
+    @org.springframework.data.jpa.repository.Modifying
+    @Query("UPDATE KhachHang kh SET kh.nguoiPhuTrach = null WHERE kh.nguoiPhuTrach.maNhanVien = :maNhanVien")
+    void nullifyNguoiPhuTrach(@Param("maNhanVien") Integer maNhanVien);
 }

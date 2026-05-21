@@ -22,4 +22,8 @@ public interface ChienDichRepository extends JpaRepository<ChienDich, Integer> {
     @Query("SELECT cd FROM ChienDich cd WHERE cd.daXoa = false AND " +
            "LOWER(cd.tenChienDich) LIKE LOWER(CONCAT('%', :keyword, '%'))")
     List<ChienDich> searchByKeyword(@Param("keyword") String keyword);
+
+    @org.springframework.data.jpa.repository.Modifying
+    @Query("UPDATE ChienDich cd SET cd.nguoiQuanLy = null WHERE cd.nguoiQuanLy.maNhanVien = :maNhanVien")
+    void nullifyNguoiQuanLy(@Param("maNhanVien") Integer maNhanVien);
 }

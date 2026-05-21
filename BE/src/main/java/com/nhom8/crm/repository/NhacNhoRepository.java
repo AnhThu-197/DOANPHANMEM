@@ -18,4 +18,8 @@ public interface NhacNhoRepository extends JpaRepository<NhacNho, Integer> {
            "AND n.thoiGianNhac BETWEEN :from AND :to")
     List<NhacNho> findUpcomingReminders(@Param("from") LocalDateTime from,
                                         @Param("to") LocalDateTime to);
+
+    @org.springframework.data.jpa.repository.Modifying
+    @Query("DELETE FROM NhacNho n WHERE n.nhanVien.maNhanVien = :maNhanVien")
+    void deleteByMaNhanVien(@Param("maNhanVien") Integer maNhanVien);
 }

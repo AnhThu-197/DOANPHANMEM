@@ -23,6 +23,11 @@ function initializeDashboard() {
     document.getElementById('userName').textContent   = user.name;
     document.getElementById('userRole').textContent   = getRoleLabel(user.role);
     document.getElementById('userAvatar').textContent = user.avatar || user.name.split(' ').pop().substring(0, 2).toUpperCase();
+    
+    // Cập nhật số thông báo chưa đọc
+    if (typeof updateNotificationBadge === 'function') {
+        updateNotificationBadge();
+    }
 }
 
 // ---- Hiển thị menu theo role ----

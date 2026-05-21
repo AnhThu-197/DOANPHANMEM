@@ -50,6 +50,15 @@ const API_ENDPOINTS = {
         markAllRead: '/thong-bao/doc-tat-ca'
     },
 
+    adminUsers: {
+        list: '/admin/users',
+        create: '/admin/users',
+        update: (id) => `/admin/users/${id}`,
+        lock: (id) => `/admin/users/${id}/lock`,
+        unlock: (id) => `/admin/users/${id}/unlock`,
+        delete: (id) => `/admin/users/${id}`
+    },
+
     docs: {
         openApiJson: '/v3/api-docs',
         swaggerUi: '/swagger-ui.html'

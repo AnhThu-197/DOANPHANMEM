@@ -77,5 +77,20 @@ const API_SERVICES = {
             API_CLIENT.patch(API_ENDPOINTS.thongBao.markRead(id), {}),
         markAllRead: () =>
             API_CLIENT.patch(API_ENDPOINTS.thongBao.markAllRead, {})
+    },
+
+    adminUsers: {
+        list: () =>
+            API_CLIENT.get(API_ENDPOINTS.adminUsers.list),
+        create: (payload) =>
+            API_CLIENT.post(API_ENDPOINTS.adminUsers.create, payload),
+        update: (id, payload) =>
+            API_CLIENT.put(API_ENDPOINTS.adminUsers.update(id), payload),
+        lock: (id) =>
+            API_CLIENT.patch(API_ENDPOINTS.adminUsers.lock(id), {}),
+        unlock: (id) =>
+            API_CLIENT.patch(API_ENDPOINTS.adminUsers.unlock(id), {}),
+        delete: (id) =>
+            API_CLIENT.delete(API_ENDPOINTS.adminUsers.delete(id))
     }
 };

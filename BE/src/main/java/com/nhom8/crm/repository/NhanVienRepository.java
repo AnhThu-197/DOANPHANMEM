@@ -19,4 +19,7 @@ public interface NhanVienRepository extends JpaRepository<NhanVien, Integer> {
 
     @Query("SELECT nv FROM NhanVien nv JOIN nv.taiKhoan tk WHERE tk.trangThai = 'Hoạt động'")
     List<NhanVien> findAllActive();
+
+    @Query("SELECT nv FROM NhanVien nv JOIN FETCH nv.taiKhoan tk JOIN FETCH tk.vaiTro")
+    List<NhanVien> findAllWithTaiKhoanAndVaiTro();
 }

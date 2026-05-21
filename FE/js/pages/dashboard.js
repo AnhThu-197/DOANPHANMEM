@@ -254,7 +254,27 @@ async function loadDashboard() {
             mainContent.innerHTML = renderDashboardHTML(stats, customers, user);
             return;
         } catch (err) {
-            console.warn('[Dashboard] API thất bại, fallback mock:', err.message);
+            console.error('[Dashboard] Lỗi tải dữ liệu:', err);
+            mainContent.innerHTML = `
+                <div class="error-container" style="text-align: center; padding: 50px 20px; background: white; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-top: 30px;">
+                    <div style="font-size: 64px; color: #ef4444; margin-bottom: 20px;">
+                        <i class="fas fa-exclamation-circle"></i>
+                    </div>
+                    <h3 style="font-size: 20px; color: #1e293b; margin-bottom: 10px; font-weight: 600;">Không thể tải dữ liệu Tổng quan</h3>
+                    <p style="color: #64748b; margin-bottom: 25px; max-width: 500px; margin-left: auto; margin-right: auto; line-height: 1.6;">
+                        Đã có lỗi xảy ra khi kết nối tới hệ thống. Vui lòng kiểm tra trạng thái máy chủ Backend hoặc liên hệ bộ phận hỗ trợ kỹ thuật.
+                    </p>
+                    <div style="background: #fef2f2; border: 1px solid #fee2e2; border-radius: 6px; padding: 12px; font-family: monospace; font-size: 13px; color: #b91c1c; display: inline-block; margin-bottom: 25px; text-align: left; max-width: 90%;">
+                        Chi tiết: ${err.message || err}
+                    </div>
+                    <div>
+                        <button class="btn btn-primary" onclick="loadDashboard()" style="padding: 10px 24px; font-size: 14px;">
+                            <i class="fas fa-redo-alt" style="margin-right: 8px;"></i> Thử lại
+                        </button>
+                    </div>
+                </div>
+            `;
+            return;
         }
     }
 
@@ -265,6 +285,24 @@ async function loadDashboard() {
     }
 
     const stats = {
+        tongKhachHang:     DATA.customers ? DATA.customers.filter(c => !c.deleted).length : 0,
+        chienDichDangChay: DATA.campaigns ? DATA.campaigns.filter(c => !c.deleted).length : 0,
+        tongDoanhThu:      null,
+        khachDangDungThu:  DATA.customers ? DATA.customers.filter(c => c.trialStartDate && !c.deleted).length : 0
+    };
+    const customers = DATA.customers ? DATA.customers.filter(c => !c.deleted).map(c => ({
+        maKhachHang:    c.id,
+        hoTen:          c.name,
+        email:          c.email,
+        soDienThoai:    c.phone,
+        trangThaiKhach: getStatusLabel(c.status)
+    })) : [];
+    mainContent.innerHTML = renderDashboardHTML(stats, customers, user);
+}
+
+function loadAdminDashboard() {
+    const mainContent = document.getElementById('mainContent');
+
     if (!DATA.users) {
         DATA.users = [
             { id: 1, username: 'admin',    name: 'Quản trị viên',   email: 'admin@crm.com',    role: 'admin',    status: 'active', createdDate: '01/01/2024', lastLogin: '27/03/2026 10:30' },
