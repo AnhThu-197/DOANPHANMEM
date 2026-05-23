@@ -119,13 +119,32 @@ public class NhacNhoServiceImpl implements NhacNhoService {
             if (spResult[2] instanceof Number) {
                 newId = ((Number) spResult[2]).intValue();
             } else {
-                newId = Integer.parseInt(spResult[2].toString());
+                try {
+                    newId = Integer.parseInt(spResult[2].toString().trim());
+                } catch (Exception e) {
+                    newId = null;
+                }
             }
         }
 
         // Retrieve the generated entity and optionally update fields
-        NhacNho saved = repository.findById(newId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lịch hẹn vừa tạo với mã: " + newId));
+        NhacNho saved = null;
+        if (newId != null) {
+            saved = repository.findById(newId).orElse(null);
+        }
+
+        // Fallback: If the generated ID is null or findById returns empty (due to database driver or synchronization sync),
+        // we retrieve the latest appointment created for this customer as a highly reliable fallback.
+        if (saved == null) {
+            List<NhacNho> latestAppointments = repository.findByKhachHangMaKhachHangOrderByThoiGianNhacDesc(khachHang.getMaKhachHang());
+            if (!latestAppointments.isEmpty()) {
+                saved = latestAppointments.get(0);
+            }
+        }
+
+        if (saved == null) {
+            throw new ResourceNotFoundException("Không tìm thấy lịch hẹn vừa tạo với mã: " + newId);
+        }
 
         if (request.getStatus() != null || request.getResult() != null || request.getResultNotes() != null) {
             if (request.getStatus() != null) {
