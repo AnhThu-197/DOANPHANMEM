@@ -87,6 +87,41 @@ public class LichSuTuongTacServiceImpl implements LichSuTuongTacService {
         return convertToResponse(saved);
     }
 
+    @Override
+    @Transactional
+    public InteractionResponse updateInteraction(Integer id, InteractionRequest request) {
+        LichSuTuongTac entity = repository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tương tác với mã: " + id));
+
+        KhachHang khachHang = khachHangRepository.findById(request.getCustomerId())
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy khách hàng với mã: " + request.getCustomerId()));
+
+        NhanVien nhanVien = null;
+        if (request.getEmployeeId() != null) {
+            nhanVien = nhanVienRepository.findById(request.getEmployeeId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy nhân viên với mã: " + request.getEmployeeId()));
+        }
+
+        entity.setKhachHang(khachHang);
+        entity.setNhanVien(nhanVien);
+        entity.setLoaiTuongTac(mapFrontendTypeToDb(request.getType()));
+        entity.setNoiDung(request.getContent());
+        entity.setKetQua(request.getNotes());
+        entity.setNgayCapNhat(LocalDateTime.now());
+
+        LichSuTuongTac updated = repository.save(entity);
+        return convertToResponse(updated);
+    }
+
+    @Override
+    @Transactional
+    public void deleteInteraction(Integer id) {
+        if (!repository.existsById(id)) {
+            throw new ResourceNotFoundException("Không tìm thấy tương tác với mã: " + id);
+        }
+        repository.deleteById(id);
+    }
+
     // --- Helper Methods ---
 
     private InteractionResponse convertToResponse(LichSuTuongTac entity) {

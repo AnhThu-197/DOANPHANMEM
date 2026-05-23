@@ -42,4 +42,19 @@ public class LichSuTuongTacController {
         InteractionResponse saved = service.addInteraction(request);
         return new ResponseEntity<>(saved, HttpStatus.CREATED);
     }
+
+    // 4. Chỉnh sửa một tương tác
+    @PutMapping("/{id}")
+    public ResponseEntity<InteractionResponse> updateInteraction(@PathVariable Integer id,
+                                                                 @Valid @RequestBody InteractionRequest request) {
+        InteractionResponse updated = service.updateInteraction(id, request);
+        return ResponseEntity.ok(updated);
+    }
+
+    // 5. Xóa một tương tác
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteInteraction(@PathVariable Integer id) {
+        service.deleteInteraction(id);
+        return ResponseEntity.noContent().build();
+    }
 }

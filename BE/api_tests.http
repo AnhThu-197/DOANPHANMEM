@@ -95,3 +95,23 @@ Content-Type: application/json
   "resultNotes": "Khách hàng rất hài lòng và hứa sẽ giới thiệu thêm đối tác."
 }
 
+###
+
+### 11. Chỉnh sửa một tương tác (Ví dụ ID = 1)
+PUT http://localhost:8080/api/tuongtac/1
+Content-Type: application/json
+
+{
+  "customerId": 1,
+  "employeeId": 3,
+  "type": "call",
+  "content": "Gọi điện tư vấn sản phẩm CRM (Đã chỉnh sửa nội dung)",
+  "notes": "Khách hàng bận, hẹn tối gọi lại"
+}
+
+###
+
+### 12. Xóa một tương tác (Ví dụ ID = 1)
+DELETE http://localhost:8080/api/tuongtac/1
+Accept: application/json
+

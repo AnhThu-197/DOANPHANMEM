@@ -8,4 +8,6 @@ public interface LichSuTuongTacService {
     List<InteractionResponse> getAllInteractions();
     List<InteractionResponse> getInteractionsByCustomerId(Integer customerId);
     InteractionResponse addInteraction(InteractionRequest request);
+    InteractionResponse updateInteraction(Integer id, InteractionRequest request);
+    void deleteInteraction(Integer id);
 }
