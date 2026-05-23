@@ -296,3 +296,55 @@ Accept: application/octet-stream
 DELETE http://localhost:8080/api/tuongtac/2/files/1
 Accept: application/json
 
+###
+
+### 33. Lấy thông tin cấu hình hệ thống hiện tại
+GET http://localhost:8080/api/cauhinh
+Accept: application/json
+
+###
+
+### 34. Cập nhật thông tin cấu hình hệ thống (Thông tin Công ty, Hệ thống, Thông báo, Bảo mật, Sao lưu)
+PUT http://localhost:8080/api/cauhinh
+Content-Type: application/json
+
+{
+  "companyName": "TẬP ĐOÀN CÔNG NGHỆ CRM VIỆT NAM",
+  "email": "contact@crmcorp.vn",
+  "phone": "0987654321",
+  "website": "https://crmcorp.vn",
+  "address": "Tầng 15, Tòa nhà Innovation, Công viên phần mềm Quang Trung, Quận 12, TP.HCM",
+  "timezone": "Việt Nam (GMT+7)",
+  "dateFormat": "DD/MM/YYYY",
+  "currency": "VND (₫)",
+  "language": "Tiếng Việt",
+  "emailNotifications": true,
+  "smsNotifications": false,
+  "browserNotifications": true,
+  "sessionTimeout": 45,
+  "maxFailedAttempts": 5,
+  "passwordExpiryDays": 90,
+  "twoFactorAuth": true,
+  "autoBackup": true,
+  "backupFrequency": "Hàng tuần"
+}
+
+###
+
+### 35. Tải bản sao lưu hệ thống (Backup)
+GET http://localhost:8080/api/cauhinh/backup
+Accept: application/octet-stream
+
+###
+
+### 36. Khôi phục hệ thống từ tệp tin sao lưu (Restore)
+POST http://localhost:8080/api/cauhinh/restore
+Content-Type: multipart/form-data; boundary=WebAppBoundary
+
+--WebAppBoundary
+Content-Disposition: form-data; name="file"; filename="backup.json"
+Content-Type: application/json
+
+< ./pom.xml
+--WebAppBoundary--
+
