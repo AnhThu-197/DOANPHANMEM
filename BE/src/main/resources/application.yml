@@ -7,11 +7,25 @@ spring:
   application:
     name: crm-nhom8
 
+  # Cấu hình gửi mail qua SMTP Gmail
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: vyphan59621@gmail.com
+    password: azeaxyavvkpzgnjw
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+
   # Cấu hình kết nối Microsoft SQL Server
   datasource:
     url: jdbc:sqlserver://localhost:1433;databaseName=DoAnPhanMem_Nhom8;encrypt=true;trustServerCertificate=true;
     username: sa
-    password: your_secure_password # Hãy thay đổi password SQL Server của bạn tại đây
+    password: 123456 # Hãy thay đổi password SQL Server của bạn tại đây
     driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
 
   # Cấu hình Hibernate / JPA

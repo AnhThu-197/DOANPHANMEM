@@ -1,5 +1,8 @@
 package com.nhom8.crm.controller;
 
+import com.nhom8.crm.dto.request.ForgotPasswordRequest;
+import com.nhom8.crm.dto.request.ResetPasswordRequest;
+import com.nhom8.crm.dto.request.VerifyOtpRequest;
 import com.nhom8.crm.entity.TaiKhoan;
 import com.nhom8.crm.service.TaiKhoanService;
 import jakarta.validation.Valid;
@@ -54,5 +57,26 @@ public class TaiKhoanController {
     public ResponseEntity<Void> deleteTaiKhoan(@PathVariable Integer id) {
         taiKhoanService.deleteTaiKhoan(id);
         return ResponseEntity.noContent().build();
+    }
+
+    // 6. Quên mật khẩu - Gửi OTP qua mail
+    @PostMapping("/quen-mat-khau")
+    public ResponseEntity<String> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        taiKhoanService.sendOtp(request);
+        return ResponseEntity.ok("Mã OTP xác thực đặt lại mật khẩu đã được gửi qua email của bạn.");
+    }
+
+    // 6b. Xác thực mã OTP
+    @PostMapping("/xac-thuc-otp")
+    public ResponseEntity<String> verifyOtp(@Valid @RequestBody VerifyOtpRequest request) {
+        taiKhoanService.verifyOtp(request);
+        return ResponseEntity.ok("Mã OTP chính xác. Vui lòng tiến hành đặt lại mật khẩu mới.");
+    }
+
+    // 7. Đặt lại mật khẩu mới
+    @PostMapping("/dat-lai-mat-khau")
+    public ResponseEntity<String> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        taiKhoanService.resetPassword(request);
+        return ResponseEntity.ok("Mật khẩu mới đã được thiết lập thành công.");
     }
 }

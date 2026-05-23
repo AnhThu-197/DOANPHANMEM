@@ -115,3 +115,35 @@ Content-Type: application/json
 DELETE http://localhost:8080/api/tuongtac/1
 Accept: application/json
 
+###
+
+### 13. Bước 1: Yêu cầu gửi mã OTP quên mật khẩu
+POST http://localhost:8080/api/taikhoan/quen-mat-khau
+Content-Type: application/json
+
+{
+  "email": "vyphan59621@gmail.com"
+}
+
+###
+
+### 14. Bước 2: Xác thực mã OTP nhận được
+POST http://localhost:8080/api/taikhoan/xac-thuc-otp
+Content-Type: application/json
+
+{
+  "email": "vyphan59621@gmail.com",
+  "otp": "123456"
+}
+
+###
+
+### 15. Bước 3: Đặt lại mật khẩu mới (Sau khi xác thực OTP thành công)
+POST http://localhost:8080/api/taikhoan/dat-lai-mat-khau
+Content-Type: application/json
+
+{
+  "email": "vyphan59621@gmail.com",
+  "newPassword": "newPassword123"
+}
+
