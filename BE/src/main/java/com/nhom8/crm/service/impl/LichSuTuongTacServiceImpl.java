@@ -1,0 +1,137 @@
+package com.nhom8.crm.service.impl;
+
+import com.nhom8.crm.dto.request.InteractionRequest;
+import com.nhom8.crm.dto.response.InteractionResponse;
+import com.nhom8.crm.entity.KhachHang;
+import com.nhom8.crm.entity.LichSuTuongTac;
+import com.nhom8.crm.entity.NhanVien;
+import com.nhom8.crm.exception.ResourceNotFoundException;
+import com.nhom8.crm.repository.KhachHangRepository;
+import com.nhom8.crm.repository.LichSuTuongTacRepository;
+import com.nhom8.crm.repository.NhanVienRepository;
+import com.nhom8.crm.service.LichSuTuongTacService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.stream.Collectors;
+
+@Service
+public class LichSuTuongTacServiceImpl implements LichSuTuongTacService {
+
+    private final LichSuTuongTacRepository repository;
+    private final KhachHangRepository khachHangRepository;
+    private final NhanVienRepository nhanVienRepository;
+
+    @Autowired
+    public LichSuTuongTacServiceImpl(LichSuTuongTacRepository repository,
+                                     KhachHangRepository khachHangRepository,
+                                     NhanVienRepository nhanVienRepository) {
+        this.repository = repository;
+        this.khachHangRepository = khachHangRepository;
+        this.nhanVienRepository = nhanVienRepository;
+    }
+
+    @Override
+    public List<InteractionResponse> getAllInteractions() {
+        return repository.findAllByOrderByThoiGianTaoDesc().stream()
+                .map(this::convertToResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<InteractionResponse> getInteractionsByCustomerId(Integer customerId) {
+        // Kiểm tra khách hàng có tồn tại không
+        if (!khachHangRepository.existsById(customerId)) {
+            throw new ResourceNotFoundException("Không tìm thấy khách hàng với mã: " + customerId);
+        }
+        return repository.findByKhachHangMaKhachHangOrderByThoiGianTaoDesc(customerId).stream()
+                .map(this::convertToResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional
+    public InteractionResponse addInteraction(InteractionRequest request) {
+        // 1. Tìm kiếm và kiểm tra Khách hàng
+        KhachHang khachHang = khachHangRepository.findById(request.getCustomerId())
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy khách hàng với mã: " + request.getCustomerId()));
+
+        // 2. Tìm kiếm Nhân viên (nếu có truyền)
+        NhanVien nhanVien = null;
+        if (request.getEmployeeId() != null) {
+            nhanVien = nhanVienRepository.findById(request.getEmployeeId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy nhân viên với mã: " + request.getEmployeeId()));
+        }
+
+        // 3. Chuẩn hóa Loại tương tác từ FE ('call', 'email', 'meeting', 'message') sang DB ('Gọi điện', 'Email', 'Gặp mặt', 'Nhắn tin')
+        String loaiTuongTacDb = mapFrontendTypeToDb(request.getType());
+
+        // 4. Khởi tạo đối tượng lịch sử tương tác
+        LichSuTuongTac tuongTac = LichSuTuongTac.builder()
+                .khachHang(khachHang)
+                .nhanVien(nhanVien)
+                .loaiTuongTac(loaiTuongTacDb)
+                .noiDung(request.getContent())
+                .ketQua(request.getNotes()) // FE truyền notes -> lưu vào cột kết quả của DB
+                .tieuDe("Tương tác tự động từ hệ thống")
+                .thoiGianTao(LocalDateTime.now())
+                .ngayCapNhat(LocalDateTime.now())
+                .build();
+
+        // 5. Lưu vào Database
+        LichSuTuongTac saved = repository.save(tuongTac);
+
+        return convertToResponse(saved);
+    }
+
+    // --- Helper Methods ---
+
+    private InteractionResponse convertToResponse(LichSuTuongTac entity) {
+        return InteractionResponse.builder()
+                .id(entity.getMaTuongTac())
+                .customerId(entity.getKhachHang().getMaKhachHang())
+                .customerName(entity.getKhachHang().getHoTen())
+                .employeeId(entity.getNhanVien() != null ? entity.getNhanVien().getMaNhanVien() : null)
+                .employeeName(entity.getNhanVien() != null ? entity.getNhanVien().getHoTen() : "Hệ thống")
+                .type(mapDbToFrontendType(entity.getLoaiTuongTac())) // chuyển sang chuỗi tiếng Anh cho FE
+                .content(entity.getNoiDung())
+                .notes(entity.getKetQua())
+                .date(entity.getThoiGianTao())
+                .build();
+    }
+
+    private String mapFrontendTypeToDb(String feType) {
+        if (feType == null) return "Gọi điện";
+        switch (feType.toLowerCase()) {
+            case "call":
+                return "Gọi điện";
+            case "email":
+                return "Email";
+            case "meeting":
+                return "Gặp mặt";
+            case "message":
+                return "Nhắn tin";
+            default:
+                return feType;
+        }
+    }
+
+    private String mapDbToFrontendType(String dbType) {
+        if (dbType == null) return "call";
+        switch (dbType) {
+            case "Gọi điện":
+                return "call";
+            case "Email":
+                return "email";
+            case "Gặp mặt":
+                return "meeting";
+            case "Nhắn tin":
+                return "message";
+            default:
+                return dbType.toLowerCase();
+        }
+    }
+}

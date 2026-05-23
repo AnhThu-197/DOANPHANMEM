@@ -1,0 +1,97 @@
+### 1. Lấy danh sách tất cả tài khoản
+GET http://localhost:8080/api/taikhoan
+Accept: application/json
+
+###
+
+### 2. Lấy danh sách khách hàng đang hoạt động
+GET http://localhost:8080/api/khachhang
+Accept: application/json
+
+###
+
+### 3. Lấy toàn bộ lịch sử tương tác trên hệ thống
+GET http://localhost:8080/api/tuongtac
+Accept: application/json
+
+###
+
+### 4. Lấy lịch sử tương tác của riêng khách hàng có ID = 1
+GET http://localhost:8080/api/tuongtac/khachhang/1
+Accept: application/json
+
+###
+
+### 5. Thêm một tương tác mới
+POST http://localhost:8080/api/tuongtac
+Content-Type: application/json
+
+{
+  "customerId": 1,
+  "employeeId": 3,
+  "type": "call",
+  "content": "Gọi điện tư vấn sản phẩm CRM cho khách hàng ABC (Test từ IntelliJ)",
+  "notes": "Khách hàng rất hài lòng, hẹn thứ 2 gọi lại"
+}
+
+###
+
+### 6. Lấy danh sách tất cả lịch hẹn
+GET http://localhost:8080/api/lichhen
+Accept: application/json
+
+###
+
+### 7. Tạo mới một lịch hẹn / nhắc nhở
+POST http://localhost:8080/api/lichhen
+Content-Type: application/json
+
+{
+  "customerId": 1,
+  "employeeId": 3,
+  "title": "Gọi chốt hợp đồng dùng thử sản phẩm",
+  "type": "call",
+  "date": "2026-06-15",
+  "time": "10:30",
+  "reminderBefore": 30,
+  "notes": "Gọi trao đổi về việc gia hạn thử nghiệm hệ thống CRM.",
+  "status": "scheduled"
+}
+
+###
+
+### 8. Lấy danh sách lịch hẹn của khách hàng có ID = 1
+GET http://localhost:8080/api/lichhen/khachhang/1
+Accept: application/json
+
+###
+
+### 9. Cập nhật thông tin lịch hẹn mới tạo (Ví dụ ID = 1)
+PUT http://localhost:8080/api/lichhen/1
+Content-Type: application/json
+
+{
+  "customerId": 1,
+  "employeeId": 3,
+  "title": "Họp mặt trực tiếp chốt hợp đồng (Đã cập nhật)",
+  "type": "meeting",
+  "date": "2026-06-15",
+  "time": "14:00",
+  "reminderBefore": 15,
+  "notes": "Họp trực tiếp tại văn phòng để thương thảo điều khoản hợp đồng.",
+  "status": "completed",
+  "result": "Thành công",
+  "resultNotes": "Khách hàng đồng ý ký hợp đồng dùng thử 30 ngày ngay lập tức."
+}
+
+###
+
+### 10. Cập nhật kết quả và ghi chú lịch hẹn (Ví dụ ID = 1)
+PUT http://localhost:8080/api/lichhen/1/ketqua
+Content-Type: application/json
+
+{
+  "result": "success",
+  "resultNotes": "Khách hàng rất hài lòng và hứa sẽ giới thiệu thêm đối tác."
+}
+

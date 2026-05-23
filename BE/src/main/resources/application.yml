@@ -1,0 +1,40 @@
+server:
+  port: 8080
+  servlet:
+    context-path: /api
+
+spring:
+  application:
+    name: crm-nhom8
+
+  # Cấu hình kết nối Microsoft SQL Server
+  datasource:
+    url: jdbc:sqlserver://localhost:1433;databaseName=DoAnPhanMem_Nhom8;encrypt=true;trustServerCertificate=true;
+    username: sa
+    password: your_secure_password # Hãy thay đổi password SQL Server của bạn tại đây
+    driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
+
+  # Cấu hình Hibernate / JPA
+  jpa:
+    hibernate:
+      ddl-auto: update # 'update' để tự động cập nhật các bảng từ Entity Java. Chọn 'none' nếu chỉ dùng SQL tay.
+      naming:
+        physical-strategy: org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl
+    show-sql: true # In câu lệnh SQL ra console để tiện debug
+    properties:
+      hibernate:
+        format_sql: true # Định dạng câu lệnh SQL in ra cho dễ đọc
+        dialect: org.hibernate.dialect.SQLServerDialect
+
+  # Cấu hình upload file (cho bảng TepDinhKem)
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+
+# Cấu hình Log level cho ứng dụng
+logging:
+  level:
+    root: INFO
+    com.nhom8.crm: DEBUG
+    org.hibernate.SQL: DEBUG
