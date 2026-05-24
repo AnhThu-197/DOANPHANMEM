@@ -104,7 +104,7 @@ public class ThongDiepServiceImpl implements ThongDiepService {
                 MimeMessage mimeMessage = mailSender.createMimeMessage();
                 MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, true, "UTF-8");
 
-                helper.setFrom("vyphan59621@gmail.com");
+                helper.setFrom("vyphan59621@gmail.com", "Công ty phần mềm CRM");
                 helper.setTo(khachHang.getEmail());
                 helper.setSubject(title);
 

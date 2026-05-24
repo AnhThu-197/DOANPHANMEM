@@ -19,7 +19,7 @@ public class CauHinhHeThong {
     private Integer id = 1; // Luôn chỉ có 1 dòng duy nhất lưu cấu hình hệ thống
 
     // 1. Thông tin công ty
-    @Column(name = "tenCongTy", length = 200)
+    @Column(name = "tenCongTy", length = 200, columnDefinition = "NVARCHAR(200)")
     @Builder.Default
     private String tenCongTy = "CÔNG TY CRM";
 
@@ -35,12 +35,12 @@ public class CauHinhHeThong {
     @Builder.Default
     private String websiteCongTy = "https://example.com";
 
-    @Column(name = "diaChiCongTy", length = 500)
+    @Column(name = "diaChiCongTy", length = 500, columnDefinition = "NVARCHAR(500)")
     @Builder.Default
     private String diaChiCongTy = "123 Đường ABC, Quận 1, TP.HCM";
 
     // 2. Hệ thống
-    @Column(name = "muiGio", length = 50)
+    @Column(name = "muiGio", length = 50, columnDefinition = "NVARCHAR(50)")
     @Builder.Default
     private String muiGio = "Việt Nam (GMT+7)";
 
@@ -48,11 +48,11 @@ public class CauHinhHeThong {
     @Builder.Default
     private String dinhDangNgay = "DD/MM/YYYY";
 
-    @Column(name = "donViTienTe", length = 20)
+    @Column(name = "donViTienTe", length = 20, columnDefinition = "NVARCHAR(20)")
     @Builder.Default
     private String donViTienTe = "VND (₫)";
 
-    @Column(name = "ngonNgu", length = 50)
+    @Column(name = "ngonNgu", length = 50, columnDefinition = "NVARCHAR(50)")
     @Builder.Default
     private String ngonNgu = "Tiếng Việt";
 
@@ -91,7 +91,7 @@ public class CauHinhHeThong {
     @Builder.Default
     private Boolean tuDongSaoLuu = false;
 
-    @Column(name = "tanSuatSaoLuu", length = 50)
+    @Column(name = "tanSuatSaoLuu", length = 50, columnDefinition = "NVARCHAR(50)")
     @Builder.Default
     private String tanSuatSaoLuu = "Hàng ngày";
 

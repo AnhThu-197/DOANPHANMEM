@@ -31,16 +31,19 @@ public class NhacNhoServiceImpl implements NhacNhoService {
     private final KhachHangRepository khachHangRepository;
     private final NhanVienRepository nhanVienRepository;
     private final LichSuTuongTacRepository interactionRepository;
+    private final org.springframework.mail.javamail.JavaMailSender mailSender;
 
     @Autowired
     public NhacNhoServiceImpl(NhacNhoRepository repository,
                               KhachHangRepository khachHangRepository,
                               NhanVienRepository nhanVienRepository,
-                              LichSuTuongTacRepository interactionRepository) {
+                              LichSuTuongTacRepository interactionRepository,
+                              org.springframework.mail.javamail.JavaMailSender mailSender) {
         this.repository = repository;
         this.khachHangRepository = khachHangRepository;
         this.nhanVienRepository = nhanVienRepository;
         this.interactionRepository = interactionRepository;
+        this.mailSender = mailSender;
     }
 
     @Override
@@ -160,6 +163,69 @@ public class NhacNhoServiceImpl implements NhacNhoService {
         }
 
         logInteractionHistoryIfCompleted(saved);
+
+        // Tự động gửi email nhắc nhở tới nhân viên phụ trách cuộc hẹn
+        if (saved != null && nhanVien.getTaiKhoan() != null && nhanVien.getTaiKhoan().getEmail() != null) {
+            String employeeEmail = nhanVien.getTaiKhoan().getEmail();
+            if (!employeeEmail.trim().isEmpty()) {
+                try {
+                    jakarta.mail.internet.MimeMessage mimeMessage = mailSender.createMimeMessage();
+                    org.springframework.mail.javamail.MimeMessageHelper helper = 
+                        new org.springframework.mail.javamail.MimeMessageHelper(mimeMessage, true, "UTF-8");
+
+                    helper.setFrom("vyphan59621@gmail.com", "Công ty phần mềm CRM");
+                    helper.setTo(employeeEmail);
+                    helper.setSubject("[CRM REMINDER] Lịch nhắc hẹn mới: " + saved.getTieuDe());
+
+                    // Xây dựng email HTML tuyệt đẹp
+                    StringBuilder html = new StringBuilder();
+                    html.append("<html><body style='font-family: Arial, sans-serif; color: #333;'>");
+                    html.append("<div style='max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;'>");
+                    html.append("<div style='background-color: #2b4856; padding: 20px; text-align: center; color: white;'>");
+                    html.append("<h2 style='margin: 0;'>BÁO CÁO LỊCH HẸN MỚI</h2>");
+                    html.append("</div>");
+                    html.append("<div style='padding: 20px;'>");
+                    html.append("<p style='font-size: 16px;'>Xin chào <strong>").append(nhanVien.getHoTen()).append("</strong>,</p>");
+                    html.append("<p style='font-size: 14px; line-height: 1.6;'>Bạn vừa có một lịch nhắc hẹn mới được phân công trên hệ thống CRM.</p>");
+                    
+                    // Chi tiết lịch hẹn
+                    html.append("<div style='background-color: #f8fafc; padding: 15px; border-radius: 6px; border: 1px solid #cbd5e1; margin-top: 15px;'>");
+                    html.append("<p style='margin: 5px 0;'><strong>Tiêu đề:</strong> ").append(saved.getTieuDe()).append("</p>");
+                    html.append("<p style='margin: 5px 0;'><strong>Khách hàng:</strong> ").append(khachHang.getHoTen()).append(" (").append(khachHang.getEmail()).append(" - ").append(khachHang.getSoDienThoai()).append(")</p>");
+                    html.append("<p style='margin: 5px 0;'><strong>Hình thức:</strong> ").append(loaiNhacNho).append("</p>");
+                    
+                    java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ofPattern("HH:mm - dd/MM/yyyy");
+                    html.append("<p style='margin: 5px 0;'><strong>Thời gian hẹn:</strong> <span style='color: #2b4856; font-weight: bold;'>").append(thoiGianNhac.format(formatter)).append("</span></p>");
+                    html.append("<p style='margin: 5px 0;'><strong>Báo trước:</strong> ").append(nhacTruocPhut).append(" phút</p>");
+                    if (request.getNotes() != null && !request.getNotes().trim().isEmpty()) {
+                        html.append("<p style='margin: 5px 0;'><strong>Mô tả/Ghi chú:</strong> ").append(request.getNotes()).append("</p>");
+                    }
+                    html.append("</div>");
+                    
+                    html.append("<p style='font-size: 14px; margin-top: 20px;'>Vui lòng sắp xếp thời gian để chuẩn bị cho cuộc hẹn đúng giờ.</p>");
+                    html.append("</div>");
+                    html.append("<div style='background-color: #f1f5f9; padding: 15px; text-align: center; font-size: 12px; color: #64748b; border-top: 1px solid #e2e8f0;'>");
+                    html.append("Email nhắc nhở tự động từ hệ thống CRM.");
+                    html.append("</div></div></body></html>");
+
+                    helper.setText(html.toString(), true);
+                    
+                    // Gửi email bất đồng bộ để tránh block tiến trình của người dùng
+                    new Thread(() -> {
+                        try {
+                            mailSender.send(mimeMessage);
+                            System.out.println("[CRM REMINDER] Đã gửi email nhắc hẹn thành công tới nhân viên: " + employeeEmail);
+                        } catch (Exception e) {
+                            System.err.println("[CRM REMINDER] Gửi mail nhắc hẹn thất bại: " + e.getMessage());
+                        }
+                    }).start();
+
+                } catch (Exception ex) {
+                    System.err.println("[CRM REMINDER] Lỗi chuẩn bị email nhắc hẹn: " + ex.getMessage());
+                }
+            }
+        }
+
         return convertToResponse(saved);
     }
 

@@ -88,7 +88,7 @@ public class TaiKhoanServiceImpl implements TaiKhoanService {
 
         // Send OTP email
         SimpleMailMessage message = new SimpleMailMessage();
-        message.setFrom("vyphan59621@gmail.com");
+        message.setFrom("Công ty phần mềm CRM <vyphan59621@gmail.com>");
         message.setTo(taiKhoan.getEmail());
         message.setSubject("Mã OTP xác thực đặt lại mật khẩu");
         message.setText("Xin chào,\n\nBạn đã yêu cầu đặt lại mật khẩu cho tài khoản của mình.\n" +
