@@ -273,18 +273,44 @@ function viewCustomer(id) { openCustomerDetailModal(id); }
 function editCustomer(id) { updateCustomer(id); }
 
 function updateCustomer(customerId) {
-    const c = DATA.customers.find(c => c.id === customerId);
-    if (!c) return;
-    document.getElementById('customerName').value = c.name;
-    document.getElementById('customerEmail').value = c.email;
-    document.getElementById('customerPhone').value = c.phone;
-    document.getElementById('customerCompany').value = c.company;
-    document.getElementById('customerStatus').value = c.status;
-    document.getElementById('customerSource').value = c.source;
-    document.getElementById('customerIndustry').value = c.industry;
+    const c = DATA.customers.find(c => Number(c.id) === Number(customerId));
+
+    if (!c) {
+        alert('Không tìm thấy khách hàng.');
+        return;
+    }
+
+    // Load danh sách nhân viên vào dropdown trước
+    loadEmployeeDropdown('customerAssignedTo', true);
+
+    document.getElementById('customerName').value = c.name || '';
+    document.getElementById('customerEmail').value = c.email || '';
+    document.getElementById('customerPhone').value = c.phone || '';
+    document.getElementById('customerCompany').value = c.company || '';
+    document.getElementById('customerStatus').value = c.status || 'suspect';
+
+    // Nguồn khách hàng: chuyển tên nguồn backend về value của dropdown FE
+    document.getElementById('customerSource').value = mapSourceNameToFilterValue(c.source) || '';
+
+    document.getElementById('customerIndustry').value = c.industry || '';
+
+    // Người phụ trách
+    const assignedSelect = document.getElementById('customerAssignedTo');
+    if (assignedSelect) {
+        assignedSelect.value = c.assignedTo || c.maNguoiPhuTrach || '';
+    }
+
+    // Thông tin dùng thử
+    document.getElementById('customerTrialStartDate').value =
+        c.trialStartDate || c.ngayBatDauDungThu || '';
+
+    document.getElementById('customerTrialDays').value =
+        c.trialDays ?? c.soNgayDungThu ?? 0;
+
     document.getElementById('customerModalTitle').textContent = 'Cập nhật Khách hàng';
     document.getElementById('customerModal').dataset.customerId = customerId;
     document.getElementById('customerModal').style.display = 'block';
+    document.body.classList.add('modal-open');
 }
 
 async function saveCustomer(e) {

@@ -108,5 +108,19 @@ const API_SERVICES = {
             API_CLIENT.get(API_ENDPOINTS.trungLap.list),
         gop: (id) =>
             API_CLIENT.post(API_ENDPOINTS.trungLap.gop(id))
+    },
+
+    dongBoAPI: {
+        saveConfig: (payload) =>
+            API_CLIENT.post(API_ENDPOINTS.dongBoAPI.saveConfig, payload),
+
+        testConnection: (payload) =>
+            API_CLIENT.post(API_ENDPOINTS.dongBoAPI.testConnection, payload),
+
+        syncNow: (payload) =>
+            API_CLIENT.post(API_ENDPOINTS.dongBoAPI.syncNow, payload),
+
+        history: () =>
+            API_CLIENT.get(API_ENDPOINTS.dongBoAPI.history)
     }
 };

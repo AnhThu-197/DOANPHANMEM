@@ -407,6 +407,30 @@ CREATE TABLE LichSuPhanBoKhachHang (
         FOREIGN KEY (maNhanVien) REFERENCES NhanVien(maNhanVien)
 );
 GO
+-- 28. Bảng Cấu hình đồng bộ API
+CREATE TABLE CauHinhDongBoAPI (
+    maCauHinh INT IDENTITY(1,1) PRIMARY KEY,
+    tenNenTang NVARCHAR(100) NOT NULL,
+    loaiNenTang NVARCHAR(50) NOT NULL,
+    apiKey NVARCHAR(500) NULL,
+    webhookUrl NVARCHAR(500) NULL,
+    trangThai BIT DEFAULT 1 NOT NULL,
+    ngayTao DATETIME DEFAULT GETDATE(),
+    ngayCapNhat DATETIME DEFAULT GETDATE()
+);
+GO
+
+-- 29. Bảng Lịch sử đồng bộ API
+CREATE TABLE LichSuDongBoAPI (
+    maLichSuDongBo INT IDENTITY(1,1) PRIMARY KEY,
+    tenNenTang NVARCHAR(100) NOT NULL,
+    loaiNenTang NVARCHAR(50) NOT NULL,
+    soKhachHangMoi INT DEFAULT 0 NOT NULL,
+    thoiGian DATETIME DEFAULT GETDATE(),
+    trangThai NVARCHAR(50) NOT NULL,
+    ghiChu NVARCHAR(500) NULL
+);
+GO
 -- ================================================================
 -- KIỂM TRA RÀNG BUỘC
 -- ================================================================

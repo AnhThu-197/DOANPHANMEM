@@ -70,6 +70,13 @@ const API_ENDPOINTS = {
         gop: (id) => `/khach-hang/trung-lap/${id}/gop`
     },
 
+    dongBoAPI: {
+        saveConfig: '/dong-bo-api/luu-cau-hinh',
+        testConnection: '/dong-bo-api/test-ket-noi',
+        syncNow: '/dong-bo-api/dong-bo',
+        history: '/dong-bo-api/lich-su'
+    },
+    
     docs: {
         openApiJson: '/v3/api-docs',
         swaggerUi: '/swagger-ui.html'

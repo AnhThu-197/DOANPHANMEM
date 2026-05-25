@@ -2,7 +2,8 @@
 // API SYNC PAGE
 // ============================================
 
-function openApiIntegrationSettings() {
+async function openApiIntegrationSettings() {
+    await loadApiSyncHistoryFromBackend();
     const mainContent = document.getElementById('mainContent');
     
     mainContent.innerHTML = `
@@ -53,14 +54,14 @@ function openApiIntegrationSettings() {
                             <button class="btn btn-primary" onclick="saveApiIntegration(${api.id})">
                                 <i class="fas fa-save"></i> Lưu Cấu hình
                             </button>
+
                             <button class="btn btn-secondary" onclick="testApiConnection(${api.id})">
                                 <i class="fas fa-plug"></i> Test Kết nối
                             </button>
-                            ${api.status === 'active' ? `
-                                <button class="btn btn-secondary" onclick="syncApiData(${api.id})">
-                                    <i class="fas fa-sync"></i> Đồng bộ Ngay
-                                </button>
-                            ` : ''}
+
+                            <button class="btn btn-secondary" onclick="syncApiData(${api.id})">
+                                <i class="fas fa-sync"></i> Đồng bộ Ngay
+                            </button>
                         </div>
                         
                         ${api.lastSync ? `
@@ -107,52 +108,145 @@ function openApiIntegrationSettings() {
     `;
 }
 
-function saveApiIntegration(apiId) {
-    const api = DATA.apiIntegrations.find(a => a.id === apiId);
-    if (!api) return;
-    
-    const apiKeyInput = document.getElementById(`apiKey_${apiId}`);
-    const webhookUrlInput = document.getElementById(`webhookUrl_${apiId}`);
-    
-    api.apiKey = apiKeyInput.value;
-    if (webhookUrlInput) {
-        api.webhookUrl = webhookUrlInput.value;
+async function loadApiSyncHistoryFromBackend() {
+    try {
+        if (!API_SERVICES.dongBoAPI || !API_SERVICES.dongBoAPI.history) {
+            console.warn('API đồng bộ chưa sẵn sàng.');
+            return;
+        }
+
+        const response = await API_SERVICES.dongBoAPI.history();
+
+        const apiData = Array.isArray(response?.data)
+            ? response.data
+            : Array.isArray(response)
+                ? response
+                : [];
+
+        DATA.syncHistory = apiData.map(mapSyncHistoryBackendToUI);
+    } catch (error) {
+        console.error('Lỗi tải lịch sử đồng bộ:', error);
+        if (!DATA.syncHistory) {
+            DATA.syncHistory = [];
+        }
     }
-    
-    if (api.apiKey) {
-        api.status = 'active';
-    }
-    
-    alert(`✓ Đã lưu cấu hình cho ${api.name}`);
-    DATA.addAuditLog('UPDATE_API_INTEGRATION', `Cập nhật tích hợp API: ${api.name}`, AUTH.getCurrentUser().id);
-    openApiIntegrationSettings();
 }
 
-function testApiConnection(apiId) {
+function mapSyncHistoryBackendToUI(item) {
+    return {
+        id: item.maLichSuDongBo,
+        platform: item.tenNenTang || '',
+        newCustomers: item.soKhachHangMoi || 0,
+        timestamp: item.thoiGian
+            ? String(item.thoiGian).replace('T', ' ').substring(0, 19)
+            : '',
+        status: item.trangThai === 'Thành công' || item.trangThai === 'success'
+            ? 'success'
+            : 'fail'
+    };
+}
+
+async function saveApiIntegration(apiId) {
     const api = DATA.apiIntegrations.find(a => a.id === apiId);
     if (!api) return;
-    
-    if (!api.apiKey) {
+
+    const apiKeyInput = document.getElementById(`apiKey_${apiId}`);
+    const webhookUrlInput = document.getElementById(`webhookUrl_${apiId}`);
+
+    const payload = {
+        tenNenTang: api.name,
+        loaiNenTang: api.type,
+        apiKey: apiKeyInput.value.trim(),
+        webhookUrl: webhookUrlInput ? webhookUrlInput.value.trim() : null
+    };
+
+    if (!payload.apiKey && api.type !== 'webhook') {
+        alert('⚠ Vui lòng nhập API Key / Token trước khi lưu cấu hình!');
+        return;
+    }
+
+    if (api.type === 'webhook' && !payload.webhookUrl) {
+    alert('⚠ Vui lòng nhập Webhook URL trước khi lưu cấu hình!');
+    return;
+    }
+
+    try {
+        await API_SERVICES.dongBoAPI.saveConfig(payload);
+
+        api.apiKey = payload.apiKey;
+        api.webhookUrl = payload.webhookUrl;
+        api.status = 'active';
+
+        alert(`✓ Đã lưu cấu hình cho ${api.name}`);
+        openApiIntegrationSettings();
+    } catch (error) {
+        console.error('Lỗi lưu cấu hình API:', error);
+        alert('Lưu cấu hình thất bại. Kiểm tra F12 → Network → POST /dong-bo-api/luu-cau-hinh.');
+    }
+}
+
+async function testApiConnection(apiId) {
+    const api = DATA.apiIntegrations.find(a => a.id === apiId);
+    if (!api) return;
+
+    const apiKeyInput = document.getElementById(`apiKey_${apiId}`);
+    const webhookUrlInput = document.getElementById(`webhookUrl_${apiId}`);
+
+    const payload = {
+        tenNenTang: api.name,
+        loaiNenTang: api.type,
+        apiKey: apiKeyInput ? apiKeyInput.value.trim() : api.apiKey,
+        webhookUrl: webhookUrlInput ? webhookUrlInput.value.trim() : api.webhookUrl
+    };
+
+    if (!payload.apiKey && api.type !== 'webhook') {
         alert('⚠ Vui lòng nhập API Key trước khi test kết nối!');
         return;
     }
-    
-    // Simulate API test
-    setTimeout(() => {
-        alert(`✓ Kết nối thành công với ${api.name}!\n\nAPI Key hợp lệ và sẵn sàng đồng bộ dữ liệu.`);
-    }, 1000);
+
+    if (api.type === 'webhook' && !payload.webhookUrl) {
+    alert('⚠ Vui lòng nhập Webhook URL trước khi test kết nối!');
+    return;
+    }
+
+    try {
+        await API_SERVICES.dongBoAPI.testConnection(payload);
+
+        alert(`✓ Kết nối thành công với ${api.name}!`);
+
+        api.status = 'active';
+        await loadApiSyncHistoryFromBackend();
+        openApiIntegrationSettings();
+    } catch (error) {
+        console.error('Lỗi test kết nối API:', error);
+        alert('Test kết nối thất bại. Kiểm tra F12 → Network → POST /dong-bo-api/test-ket-noi.');
+    }
 }
 
-function syncApiData(apiId) {
+async function syncApiData(apiId) {
     const api = DATA.apiIntegrations.find(a => a.id === apiId);
     if (!api) return;
-    
-    if (api.status !== 'active') {
-        alert('⚠ Vui lòng kích hoạt tích hợp trước khi đồng bộ!');
+
+    const apiKeyInput = document.getElementById(`apiKey_${apiId}`);
+    const webhookUrlInput = document.getElementById(`webhookUrl_${apiId}`);
+
+    const payload = {
+        tenNenTang: api.name,
+        loaiNenTang: api.type,
+        apiKey: apiKeyInput ? apiKeyInput.value.trim() : api.apiKey,
+        webhookUrl: webhookUrlInput ? webhookUrlInput.value.trim() : api.webhookUrl
+    };
+
+    if (!payload.apiKey && api.type !== 'webhook') {
+        alert('⚠ Vui lòng nhập API Key / Token trước khi đồng bộ!');
         return;
     }
+
+    if (api.type === 'webhook' && !payload.webhookUrl) {
+    alert('⚠ Vui lòng nhập Webhook URL trước khi đồng bộ!');
+    return;
+    }
     
-    // Simulate API sync
     const loadingMsg = document.createElement('div');
     loadingMsg.innerHTML = `
         <div style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); 
@@ -162,50 +256,24 @@ function syncApiData(apiId) {
         </div>
     `;
     document.body.appendChild(loadingMsg);
-    
-    setTimeout(() => {
+
+    try {
+        await API_SERVICES.dongBoAPI.syncNow(payload);
+
         document.body.removeChild(loadingMsg);
-        
-        // Simulate new customers
-        const newCustomersCount = Math.floor(Math.random() * 10) + 1;
-        const mockCustomers = [];
-        
-        for (let i = 0; i < newCustomersCount; i++) {
-            const newCustomer = {
-                id: DATA.customers.length + i + 1,
-                name: `Khách hàng từ ${api.name} ${i + 1}`,
-                email: `customer${Date.now()}${i}@example.com`,
-                phone: `09${Math.floor(Math.random() * 100000000)}`,
-                company: `Công ty ${i + 1}`,
-                status: 'lead',
-                source: api.type,
-                industry: 'Khác',
-                score: Math.floor(Math.random() * 50) + 20,
-                createdDate: new Date().toISOString().split('T')[0],
-                lastInteraction: new Date().toISOString().split('T')[0],
-                deleted: false
-            };
-            mockCustomers.push(newCustomer);
-            DATA.customers.push(newCustomer);
-            
-            // Auto assign customer
-            autoAssignCustomer(newCustomer);
-        }
-        
-        // Update sync history
-        if (!DATA.syncHistory) DATA.syncHistory = [];
-        DATA.syncHistory.unshift({
-            id: DATA.syncHistory.length + 1,
-            platform: api.name,
-            newCustomers: newCustomersCount,
-            timestamp: new Date().toLocaleString('vi-VN'),
-            status: 'success'
-        });
-        
+
+        api.status = 'active';
         api.lastSync = new Date().toLocaleString('vi-VN');
-        
-        alert(`✓ Đồng bộ thành công!\n\nĐã thêm ${newCustomersCount} khách hàng mới từ ${api.name}\nCác khách hàng đã được phân bổ tự động cho nhân viên.`);
-        DATA.addAuditLog('SYNC_API_DATA', `Đồng bộ ${newCustomersCount} khách hàng từ ${api.name}`, 'system');
+
+        await loadCustomersFromBackend?.();
+        await loadApiSyncHistoryFromBackend();
+
+        alert(`✓ Đồng bộ thành công dữ liệu từ ${api.name}!`);
         openApiIntegrationSettings();
-    }, 2000);
+    } catch (error) {
+        document.body.removeChild(loadingMsg);
+
+        console.error('Lỗi đồng bộ API:', error);
+        alert('Đồng bộ thất bại. Kiểm tra F12 → Network → POST /dong-bo-api/dong-bo.');
+    }
 }
