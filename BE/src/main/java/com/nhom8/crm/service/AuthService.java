@@ -95,8 +95,15 @@ public class AuthService {
         taiKhoan.setThoiHanOTP(LocalDateTime.now().plusMinutes(5));
         taiKhoanRepository.save(taiKhoan);
 
-        // Gửi email
-        emailService.sendOtpEmail(email, otp);
+        // Gửi email (Bọc trong try-catch phòng trường hợp chưa cấu hình SMTP thì vẫn in OTP ra terminal để test)
+        try {
+            emailService.sendOtpEmail(email, otp);
+            log.info("Email OTP đã gửi thành công tới: {}", email);
+        } catch (Exception e) {
+            log.warn("⚠️ Gửi email OTP thất bại (Do chưa cấu hình SMTP email trong application.properties).");
+            log.info("👉 MÃ OTP THỬ NGHIỆM CỦA BẠN LÀ: [{}]", otp);
+            System.out.println("👉 MÃ OTP THỬ NGHIỆM CỦA BẠN LÀ: [" + otp + "]");
+        }
     }
 
     @Transactional
