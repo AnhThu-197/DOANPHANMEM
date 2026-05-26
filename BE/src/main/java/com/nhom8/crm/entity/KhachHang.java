@@ -1,10 +1,11 @@
 package com.nhom8.crm.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
+
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 @Entity
 @Table(name = "KhachHang")
@@ -21,19 +22,21 @@ public class KhachHang {
     @Column(name = "maKhachHang")
     private Integer maKhachHang;
 
-    // Quan hệ ManyToOne: Nhiều khách hàng được phụ trách bởi một nhân viên
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "maNguoiPhuTrach")
     private NhanVien nguoiPhuTrach;
 
-    @Column(name = "maNganhNghe")
-    private Integer maNganhNghe;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "maNganhNghe")
+    private NganhNghe nganhNghe;
 
-    @Column(name = "maNguonKH")
-    private Integer maNguonKH;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "maNguonKH")
+    private NguonKhachHang nguonKhachHang;
 
-    @Column(name = "maPhuongXa")
-    private Integer maPhuongXa;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "maPhuongXa")
+    private PhuongXa phuongXa;
 
     @Column(name = "hoTen", nullable = false, length = 100)
     private String hoTen;
@@ -62,27 +65,27 @@ public class KhachHang {
     @Column(name = "diaChiChiTiet", length = 255)
     private String diaChiChiTiet;
 
-    @Builder.Default
     @Column(name = "trangThaiKhach", nullable = false, length = 50)
+    @Builder.Default
     private String trangThaiKhach = "Người truy cập";
 
-    @Builder.Default
     @Column(name = "diemTiemNang", nullable = false)
+    @Builder.Default
     private Integer diemTiemNang = 0;
 
     @Column(name = "ngayBatDauDungThu")
     private LocalDate ngayBatDauDungThu;
 
-    @Builder.Default
     @Column(name = "soNgayDungThu", nullable = false)
+    @Builder.Default
     private Integer soNgayDungThu = 0;
 
-    @Builder.Default
     @Column(name = "trangThaiDungThu", nullable = false, length = 30)
+    @Builder.Default
     private String trangThaiDungThu = "Chưa dùng thử";
 
-    @Builder.Default
     @Column(name = "daXoa", nullable = false)
+    @Builder.Default
     private Boolean daXoa = false;
 
     @Column(name = "lyDoXoa", length = 200)
@@ -91,11 +94,20 @@ public class KhachHang {
     @Column(name = "ngayXoa")
     private LocalDateTime ngayXoa;
 
-    @Builder.Default
     @Column(name = "ngayTao")
-    private LocalDateTime ngayTao = LocalDateTime.now();
+    private LocalDateTime ngayTao;
 
-    @Builder.Default
     @Column(name = "ngayCapNhat")
-    private LocalDateTime ngayCapNhat = LocalDateTime.now();
+    private LocalDateTime ngayCapNhat;
+
+    @PrePersist
+    protected void onCreate() {
+        ngayTao = LocalDateTime.now();
+        ngayCapNhat = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        ngayCapNhat = LocalDateTime.now();
+    }
 }

@@ -1,83 +1,91 @@
 package com.nhom8.crm.controller;
-
-import com.nhom8.crm.dto.request.AppointmentRequest;
-import com.nhom8.crm.dto.request.AppointmentResultRequest;
-import com.nhom8.crm.dto.response.AppointmentResponse;
-import com.nhom8.crm.service.NhacNhoService;
-import jakarta.validation.Valid;
-import org.springframework.beans.factory.annotation.Autowired;
+import com.nhom8.crm.dto.response.ApiResponse;
+import com.nhom8.crm.entity.NhacNho;
+import com.nhom8.crm.exception.ResourceNotFoundException;
+import com.nhom8.crm.repository.KhachHangRepository;
+import com.nhom8.crm.repository.NhacNhoRepository;
+import com.nhom8.crm.repository.NhanVienRepository;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
-@RequestMapping("/lichhen")
+@RequestMapping("/nhac-nho")
+@RequiredArgsConstructor
+@Tag(name = "Nhắc nhở", description = "Quản lý nhắc nhở")
 public class NhacNhoController {
 
-    private final NhacNhoService service;
+    private final NhacNhoRepository nhacNhoRepository;
+    private final NhanVienRepository nhanVienRepository;
+    private final KhachHangRepository khachHangRepository;
 
-    @Autowired
-    public NhacNhoController(NhacNhoService service) {
-        this.service = service;
+    @GetMapping("/cua-toi")
+    @Operation(summary = "Lấy nhắc nhở theo vai trò của người dùng hiện tại")
+    public ResponseEntity<ApiResponse<List<NhacNho>>> getCuaToi(
+            @AuthenticationPrincipal UserDetails userDetails) {
+        var nhanVien = nhanVienRepository.findByTaiKhoan_Email(userDetails.getUsername())
+                .orElseThrow(() -> new ResourceNotFoundException("Nhân viên không tồn tại"));
+        
+        String role = nhanVien.getTaiKhoan().getVaiTro().getTenVaiTro().trim().toUpperCase();
+        if ("ADMIN".equals(role) || "MANAGER".equals(role)) {
+            // Admin and Manager can see all active pending reminders in the system
+            return ResponseEntity.ok(ApiResponse.ok(
+                    nhacNhoRepository.findByTrangThaiNhacNho("Chờ xử lý")));
+        } else {
+            // Employee can only see active pending reminders assigned to them
+            return ResponseEntity.ok(ApiResponse.ok(
+                    nhacNhoRepository.findByNhanVien_MaNhanVienAndTrangThaiNhacNho(
+                            nhanVien.getMaNhanVien(), "Chờ xử lý")));
+        }
     }
 
-    // 1. Tạo mới một lịch hẹn
     @PostMapping
-    public ResponseEntity<AppointmentResponse> createAppointment(@Valid @RequestBody AppointmentRequest request) {
-        AppointmentResponse saved = service.createAppointment(request);
-        return new ResponseEntity<>(saved, HttpStatus.CREATED);
+    @Operation(summary = "Tạo nhắc nhở mới")
+    public ResponseEntity<ApiResponse<NhacNho>> create(
+            @RequestBody NhacNho nhacNho,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        if (nhacNho.getNhanVien() == null) {
+            var nhanVien = nhanVienRepository.findByTaiKhoan_Email(userDetails.getUsername())
+                    .orElseThrow(() -> new ResourceNotFoundException("Nhân viên không tồn tại"));
+            nhacNho.setNhanVien(nhanVien);
+        }
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.ok("Tạo nhắc nhở thành công",
+                        nhacNhoRepository.save(nhacNho)));
     }
 
-    // 2. Lấy danh sách toàn bộ lịch hẹn
-    @GetMapping
-    public ResponseEntity<List<AppointmentResponse>> getAllAppointments() {
-        List<AppointmentResponse> list = service.getAllAppointments();
-        return ResponseEntity.ok(list);
+    @PatchMapping("/{id}/hoan-thanh")
+    @Operation(summary = "Đánh dấu nhắc nhở đã hoàn thành")
+    public ResponseEntity<ApiResponse<NhacNho>> hoanThanh(
+            @PathVariable Integer id,
+            @RequestBody(required = false) Map<String, String> body) {
+        NhacNho nhacNho = nhacNhoRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Nhắc nhở", id));
+        nhacNho.setTrangThaiNhacNho("Đã hoàn thành");
+        if (body != null) {
+            nhacNho.setKetQua(body.get("ketQua"));
+            nhacNho.setGhiChuKetQua(body.get("ghiChu"));
+        }
+        return ResponseEntity.ok(ApiResponse.ok("Cập nhật thành công",
+                nhacNhoRepository.save(nhacNho)));
     }
 
-    // 3. Xem chi tiết lịch hẹn theo mã
-    @GetMapping("/{id}")
-    public ResponseEntity<AppointmentResponse> getAppointmentById(@PathVariable Integer id) {
-        AppointmentResponse item = service.getAppointmentById(id);
-        return ResponseEntity.ok(item);
-    }
-
-    // 4. Lấy danh sách lịch hẹn của một khách hàng cụ thể
-    @GetMapping("/khachhang/{customerId}")
-    public ResponseEntity<List<AppointmentResponse>> getAppointmentsByCustomerId(@PathVariable Integer customerId) {
-        List<AppointmentResponse> list = service.getAppointmentsByCustomerId(customerId);
-        return ResponseEntity.ok(list);
-    }
-
-    // 5. Lấy danh sách lịch hẹn của một nhân viên cụ thể
-    @GetMapping("/nhanvien/{employeeId}")
-    public ResponseEntity<List<AppointmentResponse>> getAppointmentsByEmployeeId(@PathVariable Integer employeeId) {
-        List<AppointmentResponse> list = service.getAppointmentsByEmployeeId(employeeId);
-        return ResponseEntity.ok(list);
-    }
-
-    // 6. Cập nhật thông tin lịch hẹn
-    @PutMapping("/{id}")
-    public ResponseEntity<AppointmentResponse> updateAppointment(@PathVariable Integer id,
-                                                                 @Valid @RequestBody AppointmentRequest request) {
-        AppointmentResponse updated = service.updateAppointment(id, request);
-        return ResponseEntity.ok(updated);
-    }
-
-    // 6b. Cập nhật kết quả và ghi chú lịch hẹn
-    @PutMapping("/{id}/ketqua")
-    public ResponseEntity<AppointmentResponse> updateAppointmentResult(@PathVariable Integer id,
-                                                                        @Valid @RequestBody AppointmentResultRequest request) {
-        AppointmentResponse updated = service.updateAppointmentResult(id, request);
-        return ResponseEntity.ok(updated);
-    }
-
-    // 7. Xóa lịch hẹn
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteAppointment(@PathVariable Integer id) {
-        service.deleteAppointment(id);
-        return ResponseEntity.noContent().build();
+    @Operation(summary = "Hủy nhắc nhở")
+    public ResponseEntity<ApiResponse<Void>> huy(@PathVariable Integer id) {
+        NhacNho nhacNho = nhacNhoRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Nhắc nhở", id));
+        nhacNho.setTrangThaiNhacNho("Đã hủy");
+        nhacNhoRepository.save(nhacNho);
+        return ResponseEntity.ok(ApiResponse.ok("Đã hủy nhắc nhở", null));
+>>>>>>> develop
     }
 }

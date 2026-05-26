@@ -36,6 +36,7 @@ export default function App() {
   const [interactions, setInteractions] = useState([]);
   const [templates, setTemplates] = useState([]);
   const [messageHistory, setMessageHistory] = useState([]);
+  const [users, setUsers] = useState([]);
   const [config, setConfig] = useState(null);
   const [backendOnline, setBackendOnline] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -58,6 +59,7 @@ export default function App() {
   const [editingCust, setEditingCust] = useState(null);
   const [custForm, setCustForm] = useState({ name: '', email: '', phone: '', company: '', status: 'lead', source: 'facebook', industry: 'Công nghệ', score: 50, trialStartDate: '', trialDays: 0 });
 
+  // Interaction Modal & Form States
   const [showInteractionModal, setShowInteractionModal] = useState(false);
   const [interForm, setInterForm] = useState({ customerId: '', type: 'call', content: '', notes: '' });
   const [uploadingFile, setUploadingFile] = useState({});
@@ -70,6 +72,7 @@ export default function App() {
   const [showApptResultModal, setShowApptResultModal] = useState(false);
   const [selectedApptId, setSelectedApptId] = useState(null);
   const [apptResultForm, setApptResultForm] = useState({ result: 'success', resultNotes: '' });
+  const selectedAppt = appointments.find(a => a.id === selectedApptId) || null;
 
   const [showTrialModal, setShowTrialModal] = useState(false);
   const [selectedTrialCust, setSelectedTrialCust] = useState(null);
@@ -213,12 +216,31 @@ export default function App() {
 
       const msgHist = await API.getMessageHistory();
       setMessageHistory(msgHist || []);
+
+      const storedUser = localStorage.getItem('currentUser');
+      if (storedUser) {
+        const parsed = JSON.parse(storedUser);
+        if (parsed && parsed.role === 'admin') {
+          try {
+            const usersData = await API.getAllUsers();
+            setUsers(usersData);
+          } catch (e) {
+            console.error('Lỗi nạp danh sách tài khoản:', e);
+          }
+        }
+      }
     } catch (err) {
       console.error('Lỗi nạp dữ liệu từ backend:', err);
     } finally {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (activePage === 'user-management' && user && user.role === 'admin') {
+      API.getAllUsers().then(setUsers).catch(console.error);
+    }
+  }, [activePage, user]);
 
   // --- AUTHENTICATION & LOGIN ---
   const handleLogin = async (e, demoUser = null, demoPass = null) => {
@@ -651,15 +673,48 @@ export default function App() {
     }
   };
 
-  const handleSendMessage = async (e) => {
-    e.preventDefault();
+  const handleSendMessage = async (e, customForm = null) => {
+    if (e && e.preventDefault) e.preventDefault();
     if (sendingMsg) return;
     setSendingMsg(true);
     try {
-      await API.sendMessage(sendForm);
+      const formToSubmit = customForm || sendForm;
+      
+      // Compile content and promoTitle placeholders dynamically before calling API
+      let compiledContent = formToSubmit.content || '';
+      let compiledTitle = formToSubmit.promoTitle || '';
+      const selectedCust = customers.find(c => c.id === parseInt(formToSubmit.customerId));
+      if (selectedCust) {
+        compiledContent = compiledContent
+          .replace(/{customerName}/g, selectedCust.name || '')
+          .replace(/{hoTen}/g, selectedCust.name || '');
+        
+        compiledTitle = compiledTitle
+          .replace(/{customerName}/g, selectedCust.name || '')
+          .replace(/{hoTen}/g, selectedCust.name || '');
+        
+        let remainingDays = 0;
+        if (selectedCust.trialStartDate && selectedCust.trialDays > 0) {
+          const start = new Date(selectedCust.trialStartDate);
+          const end = new Date(start.getTime() + selectedCust.trialDays * 24 * 60 * 60 * 1000);
+          const diff = end - new Date();
+          remainingDays = Math.ceil(diff / (1000 * 60 * 60 * 24));
+          if (remainingDays < 0) remainingDays = 0;
+        }
+        compiledContent = compiledContent.replace(/{soNgayConLai}/g, remainingDays.toString());
+        compiledTitle = compiledTitle.replace(/{soNgayConLai}/g, remainingDays.toString());
+      }
+      
+      const payload = {
+        ...formToSubmit,
+        content: compiledContent,
+        promoTitle: compiledTitle
+      };
+      
+      await API.sendMessage(payload);
       setShowSendModal(false);
       loadData();
-      alert('✓ Gửi thông điệp chiến dịch thành công qua SP10! Số lượt sử dụng mẫu đã được cộng dồn và lịch sử tự động đồng bộ sang Tương tác.');
+      alert('✓ Gửi thông điệp chiến dịch thành công! Số lượt sử dụng mẫu đã được cộng dồn và lịch sử tự động đồng bộ sang Tương tác.');
     } catch (err) {
       alert(err.message);
     } finally {
@@ -780,13 +835,13 @@ export default function App() {
             </div>
             
             <div className="demo-users">
-              <button type="button" className="demo-btn" onClick={() => { setLoginUsername('nhanvien'); setLoginPassword('123'); handleLogin(null, 'nhanvien', '123'); }}>
+              <button type="button" className="demo-btn" onClick={() => { setLoginUsername('nv01@crm.vn'); setLoginPassword('nv01123'); handleLogin(null, 'nv01@crm.vn', 'nv01123'); }}>
                 <i className="fas fa-user"></i> Nhân viên Marketing
               </button>
-              <button type="button" className="demo-btn" onClick={() => { setLoginUsername('truongphong'); setLoginPassword('123'); handleLogin(null, 'truongphong', '123'); }}>
+              <button type="button" className="demo-btn" onClick={() => { setLoginUsername('anhthu@gmail.com'); setLoginPassword('tp123'); handleLogin(null, 'anhthu@gmail.com', 'tp123'); }}>
                 <i className="fas fa-user-tie"></i> Trưởng phòng Marketing
               </button>
-              <button type="button" className="demo-btn" onClick={() => { setLoginUsername('admin'); setLoginPassword('123'); handleLogin(null, 'admin', '123'); }}>
+              <button type="button" className="demo-btn" onClick={() => { setLoginUsername('admin@gmail.com'); setLoginPassword('admin123'); handleLogin(null, 'admin@gmail.com', 'admin123'); }}>
                 <i className="fas fa-user-shield"></i> Quản trị viên
               </button>
             </div>
@@ -986,7 +1041,7 @@ export default function App() {
                       <div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
                           <span><i className="fas fa-user" style={{ color: '#4f6f80' }}></i> Nhân viên</span>
-                          <strong>1 (33%)</strong>
+                          strong>1 (33%)</strong>
                         </div>
                         <div style={{ background: '#f1f5f9', height: '10px', borderRadius: '5px', overflow: 'hidden' }}>
                           <div style={{ background: '#4f6f80', height: '100%', width: '33.3%' }}></div>
@@ -1121,8 +1176,8 @@ export default function App() {
                           <option value="website">Website</option>
                         </select>
                       </div>
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        <button onClick={() => { setSearchQuery(''); setFilterStatus(''); setFilterSource(''); }} style={{ flex: 1, padding: '8px 16px', background: '#e2e8f0', color: '#334155', border: 'none', borderRadius: '5px', cursor: 'pointer', fontWeight: 600, fontSize: '13px' }}>
+                      <div>
+                        <button onClick={() => { setSearchQuery(''); setFilterStatus(''); setFilterSource(''); }} style={{ width: '100%', padding: '8px 16px', background: '#e2e8f0', color: '#334155', border: 'none', borderRadius: '5px', cursor: 'pointer', fontWeight: 600, fontSize: '13px' }}>
                           Đặt lại
                         </button>
                       </div>
@@ -1308,8 +1363,7 @@ export default function App() {
             </div>
           )}
 
-
-              {/* PAGE 5: CHI PHÍ CHIẾN DỊCH (CAMP EXPENSES) */}
+          {/* PAGE 5: CHI PHÍ CHIẾN DỊCH (CAMP EXPENSES) */}
           {activePage === 'campaign-expenses' && (
             <div>
               <h2 className="page-title">Chi phí Chiến dịch</h2>
@@ -1924,27 +1978,27 @@ export default function App() {
                   </tr>
                 </thead>
                 <tbody>
-                  <tr>
-                    <td><strong>nhanvien</strong></td>
-                    <td>Trần Minh Chiến</td>
-                    <td>chien@company.com</td>
-                    <td>Nhân viên marketing</td>
-                    <td><span className="status customer">Hoạt động</span></td>
-                  </tr>
-                  <tr>
-                    <td><strong>truongphong</strong></td>
-                    <td>Nguyễn Hoàng Anh Thư</td>
-                    <td>manager@company.com</td>
-                    <td>Trưởng phòng</td>
-                    <td><span className="status customer">Hoạt động</span></td>
-                  </tr>
-                  <tr>
-                    <td><strong>admin</strong></td>
-                    <td>Admin System</td>
-                    <td>admin@company.com</td>
-                    <td>Quản trị viên</td>
-                    <td><span className="status customer">Hoạt động</span></td>
-                  </tr>
+                  {users.length > 0 ? (
+                    users.map((u) => (
+                      <tr key={u.id}>
+                        <td><strong>{u.username}</strong></td>
+                        <td>{u.name}</td>
+                        <td>{u.email}</td>
+                        <td>{getRoleLabel(u.role)}</td>
+                        <td>
+                          <span className={`status ${u.status === 'active' ? 'customer' : 'suspended'}`}>
+                            {u.status === 'active' ? 'Hoạt động' : 'Bị khóa'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="5" style={{ textAlign: 'center', padding: '20px', color: '#64748b' }}>
+                        Đang tải danh sách tài khoản...
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -1963,7 +2017,6 @@ export default function App() {
                 <button className={`tab-btn ${configActiveTab === 5 ? 'active' : ''}`} onClick={() => setConfigActiveTab(5)}>Sao lưu</button>
               </div>
 
-              {/* Tab Thông tin Công ty */}
               {configActiveTab === 1 && (
                 <div id="settings-general" className="tab-content active">
                   <div style={{ background: 'white', padding: '30px', borderRadius: '8px' }}>
@@ -2003,7 +2056,6 @@ export default function App() {
                 </div>
               )}
 
-              {/* Tab Hệ thống */}
               {configActiveTab === 2 && (
                 <div id="settings-system" className="tab-content active">
                   <div style={{ background: 'white', padding: '30px', borderRadius: '8px' }}>
@@ -2054,7 +2106,6 @@ export default function App() {
                 </div>
               )}
 
-              {/* Tab Thông báo */}
               {configActiveTab === 3 && (
                 <div id="settings-notifications" className="tab-content active">
                   <div style={{ background: 'white', padding: '30px', borderRadius: '8px' }}>
@@ -2104,7 +2155,6 @@ export default function App() {
                 </div>
               )}
 
-              {/* Tab Bảo mật */}
               {configActiveTab === 4 && (
                 <div id="settings-security" className="tab-content active">
                   <div style={{ background: 'white', padding: '30px', borderRadius: '8px' }}>
@@ -2149,7 +2199,6 @@ export default function App() {
                 </div>
               )}
 
-              {/* Tab Sao lưu */}
               {configActiveTab === 5 && (
                 <div id="settings-backup" className="tab-content active">
                   <div style={{ background: 'white', padding: '30px', borderRadius: '8px' }}>

@@ -8,10 +8,8 @@ import java.util.Optional;
 
 @Repository
 public interface TaiKhoanRepository extends JpaRepository<TaiKhoan, Integer> {
-    
-    // Tìm tài khoản theo email (dùng cho đăng nhập, check trùng)
+
     Optional<TaiKhoan> findByEmail(String email);
-    
-    // Kiểm tra email đã tồn tại hay chưa
+
     boolean existsByEmail(String email);
 }

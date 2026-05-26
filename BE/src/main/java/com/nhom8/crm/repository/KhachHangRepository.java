@@ -2,30 +2,61 @@ package com.nhom8.crm.repository;
 
 import com.nhom8.crm.entity.KhachHang;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.stereotype.Repository;
-
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
+
 import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface KhachHangRepository extends JpaRepository<KhachHang, Integer> {
+public interface KhachHangRepository extends JpaRepository<KhachHang, Integer>,
+        JpaSpecificationExecutor<KhachHang> {
 
-    // Gọi hàm dbo.fn_SoNgayConLaiDungThu (F01) để lấy số ngày còn lại dùng thử
+    // Hàm DB tính số ngày dùng thử còn lại
     @Query(value = "SELECT dbo.fn_SoNgayConLaiDungThu(:maKhachHang)", nativeQuery = true)
     Integer getRemainingTrialDays(@Param("maKhachHang") Integer maKhachHang);
 
-    // Tìm các khách hàng chưa bị xóa
     List<KhachHang> findByDaXoaFalse();
 
-    // Tìm khách hàng theo email
+    List<KhachHang> findByDaXoaTrue();
+
+    List<KhachHang> findByNguoiPhuTrach_MaNhanVienAndDaXoaFalse(Integer maNhanVien);
+
+    List<KhachHang> findByEmailAndDaXoaFalse(String email);
+
+    List<KhachHang> findBySoDienThoaiAndDaXoaFalse(String soDienThoai);
+
     Optional<KhachHang> findByEmail(String email);
 
-    // Tìm khách hàng theo số điện thoại
     Optional<KhachHang> findBySoDienThoai(String soDienThoai);
 
-    // Kiểm tra trùng lặp email hoặc SĐT
     boolean existsByEmail(String email);
+
     boolean existsBySoDienThoai(String soDienThoai);
+
+    @Query("SELECT kh FROM KhachHang kh WHERE kh.daXoa = false AND " +
+           "(LOWER(kh.hoTen) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+           "kh.email LIKE CONCAT('%', :keyword, '%') OR " +
+           "kh.soDienThoai LIKE CONCAT('%', :keyword, '%'))")
+    List<KhachHang> searchByKeyword(@Param("keyword") String keyword);
+
+    @Query("SELECT COUNT(kh) FROM KhachHang kh WHERE kh.daXoa = false AND kh.trangThaiKhach = :trangThai")
+    Long countByTrangThai(@Param("trangThai") String trangThai);
+
+    @Query("SELECT kh FROM KhachHang kh WHERE kh.daXoa = false AND " +
+           "kh.trangThaiDungThu = 'Đang dùng thử'")
+    List<KhachHang> findDangDungThu();
+
+    @Modifying
+    @Query("UPDATE KhachHang kh SET kh.nguoiPhuTrach = null WHERE kh.nguoiPhuTrach.maNhanVien = :maNhanVien")
+    void nullifyNguoiPhuTrach(@Param("maNhanVien") Integer maNhanVien);
+
+    @Query("SELECT k1, k2 FROM KhachHang k1, KhachHang k2 WHERE k1.maKhachHang < k2.maKhachHang " +
+           "AND k1.daXoa = false AND k2.daXoa = false " +
+           "AND ((k1.email IS NOT NULL AND k1.email <> '' AND k1.email = k2.email) " +
+           "OR (k1.soDienThoai IS NOT NULL AND k1.soDienThoai <> '' AND k1.soDienThoai = k2.soDienThoai))")
+    List<Object[]> findDuplicatePairs();
 }

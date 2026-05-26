@@ -1,14 +1,16 @@
 target/
+
+# Maven Wrapper
 !.mvn/wrapper/maven-wrapper.jar
 
-### IntelliJ IDEA ###
+# IntelliJ IDEA
 .idea/
 *.iws
 *.iml
 *.ipr
 out/
 
-### Eclipse ###
+# Eclipse
 .apt_generated
 .classpath
 .factorypath
@@ -16,7 +18,18 @@ out/
 .settings
 .springBeans
 
-### System files ###
+# Build files
+*.class
+*.jar
+*.war
+*.ear
+
+# Uploads
+uploads/
+
+# Logs
+*.log
+
+# System files
 Thumbs.db
 Desktop.ini
-*.log

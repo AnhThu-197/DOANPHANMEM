@@ -1,9 +1,10 @@
 package com.nhom8.crm.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
+
 import java.time.LocalDateTime;
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 @Entity
 @Table(name = "TaiKhoan")
@@ -20,11 +21,9 @@ public class TaiKhoan {
     @Column(name = "maTaiKhoan")
     private Integer maTaiKhoan;
 
-    // Thay vì mapping cả Object VaiTro ngay từ đầu, bạn có thể map ID hoặc Object ManyToOne
-    // Ở đây ta map ID đơn giản hoặc ManyToOne. Để chuẩn nhất ta map ManyToOne sau khi tạo VaiTro.
-    // Tạm thời map Integer maVaiTro hoặc quan hệ để minh họa.
-    @Column(name = "maVaiTro", nullable = false)
-    private Integer maVaiTro;
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "maVaiTro", nullable = false)
+    private VaiTro vaiTro;
 
     @Column(name = "email", nullable = false, unique = true, length = 150)
     private String email;
@@ -38,25 +37,34 @@ public class TaiKhoan {
     @Column(name = "thoiHanOTP")
     private LocalDateTime thoiHanOTP;
 
-    @Builder.Default
     @Column(name = "lanDangNhapSai", nullable = false)
+    @Builder.Default
     private Integer lanDangNhapSai = 0;
 
     @Column(name = "thoiGianKhoaTam")
     private LocalDateTime thoiGianKhoaTam;
 
-    @Builder.Default
     @Column(name = "trangThai", nullable = false, length = 20)
+    @Builder.Default
     private String trangThai = "Hoạt động";
 
-    @Builder.Default
     @Column(name = "ngayTao")
-    private LocalDateTime ngayTao = LocalDateTime.now();
+    private LocalDateTime ngayTao;
 
-    @Builder.Default
     @Column(name = "ngayCapNhat")
-    private LocalDateTime ngayCapNhat = LocalDateTime.now();
+    private LocalDateTime ngayCapNhat;
 
     @Column(name = "lanDangNhapCuoi")
     private LocalDateTime lanDangNhapCuoi;
+
+    @PrePersist
+    protected void onCreate() {
+        ngayTao = LocalDateTime.now();
+        ngayCapNhat = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        ngayCapNhat = LocalDateTime.now();
+    }
 }

@@ -1,9 +1,10 @@
 package com.nhom8.crm.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
+
 import java.time.LocalDateTime;
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 @Entity
 @Table(name = "MauThongDiep")
@@ -27,27 +28,31 @@ public class MauThongDiep {
     private String noiDung;
 
     @Column(name = "loaiThongDiep", nullable = false, length = 50)
-    private String loaiThongDiep; // 'Email', 'SMS', 'Zalo'
+    private String loaiThongDiep;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "maNhanVienTao")
+    @JsonIgnoreProperties({
+            "taiKhoan",
+            "phuongXa",
+            "hibernateLazyInitializer",
+            "handler"
+    })
     private NhanVien nhanVienTao;
 
-    @Builder.Default
     @Column(name = "luotSuDung", nullable = false)
+    @Builder.Default
     private Integer luotSuDung = 0;
 
-    @Builder.Default
     @Column(name = "ngayTao")
-    private LocalDateTime ngayTao = LocalDateTime.now();
+    private LocalDateTime ngayTao;
 
-    @Builder.Default
     @Column(name = "ngayCapNhat")
-    private LocalDateTime ngayCapNhat = LocalDateTime.now();
+    private LocalDateTime ngayCapNhat;
 
     @PrePersist
     protected void onCreate() {
-        if (ngayTao == null) ngayTao = LocalDateTime.now();
+        ngayTao = LocalDateTime.now();
         ngayCapNhat = LocalDateTime.now();
     }
 

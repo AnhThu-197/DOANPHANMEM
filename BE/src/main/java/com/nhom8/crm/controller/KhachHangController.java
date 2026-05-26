@@ -1,90 +1,167 @@
 package com.nhom8.crm.controller;
 
-import com.nhom8.crm.entity.KhachHang;
-import com.nhom8.crm.service.KhachHangService;
+import com.nhom8.crm.dto.request.KhachHangRequest;
 import com.nhom8.crm.dto.request.TrialUpdateRequest;
+import com.nhom8.crm.dto.response.ApiResponse;
+import com.nhom8.crm.dto.response.KhachHangResponse;
 import com.nhom8.crm.dto.response.TrialResponse;
+import com.nhom8.crm.service.KhachHangService;
+
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+
 import jakarta.validation.Valid;
-import org.springframework.beans.factory.annotation.Autowired;
+
+import lombok.RequiredArgsConstructor;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
-@RequestMapping("/khachhang")
+@RequestMapping("/khach-hang")
+@RequiredArgsConstructor
+@Tag(name = "Khách hàng", description = "Quản lý khách hàng")
 public class KhachHangController {
 
     private final KhachHangService khachHangService;
 
-    @Autowired
-    public KhachHangController(KhachHangService khachHangService) {
-        this.khachHangService = khachHangService;
-    }
-
-    // 1. Lấy danh sách khách hàng đang hoạt động (chưa xóa)
     @GetMapping
-    public ResponseEntity<List<KhachHang>> getActiveKhachHangs() {
-        List<KhachHang> list = khachHangService.getActiveKhachHangs();
-        return ResponseEntity.ok(list);
+    @Operation(summary = "Lấy danh sách khách hàng")
+    public ResponseEntity<ApiResponse<List<KhachHangResponse>>> getAll() {
+        return ResponseEntity.ok(ApiResponse.ok(khachHangService.getAll()));
     }
 
-    // 2. Lấy danh sách tất cả bao gồm cả đã xóa mềm
     @GetMapping("/all")
-    public ResponseEntity<List<KhachHang>> getAllKhachHangs() {
-        List<KhachHang> list = khachHangService.getAllKhachHangs();
-        return ResponseEntity.ok(list);
+    @Operation(summary = "Lấy tất cả khách hàng kể cả đã xóa mềm")
+    public ResponseEntity<ApiResponse<List<KhachHangResponse>>> getAllIncludingDeleted() {
+        return ResponseEntity.ok(
+                ApiResponse.ok(khachHangService.getAllIncludingDeleted())
+        );
     }
 
-    // 3. Lấy chi tiết khách hàng theo ID
     @GetMapping("/{id}")
-    public ResponseEntity<KhachHang> getKhachHangById(@PathVariable Integer id) {
-        KhachHang khachHang = khachHangService.getKhachHangById(id);
-        return ResponseEntity.ok(khachHang);
+    @Operation(summary = "Lấy chi tiết khách hàng")
+    public ResponseEntity<ApiResponse<KhachHangResponse>> getById(
+            @PathVariable Integer id) {
+
+        return ResponseEntity.ok(
+                ApiResponse.ok(khachHangService.getById(id))
+        );
     }
 
-    // 4. Tạo mới khách hàng
+    @GetMapping("/search")
+    @Operation(summary = "Tìm kiếm khách hàng")
+    public ResponseEntity<ApiResponse<List<KhachHangResponse>>> search(
+            @RequestParam String keyword) {
+
+        return ResponseEntity.ok(
+                ApiResponse.ok(khachHangService.search(keyword))
+        );
+    }
+
     @PostMapping
-    public ResponseEntity<KhachHang> createKhachHang(@Valid @RequestBody KhachHang khachHang) {
-        KhachHang saved = khachHangService.createKhachHang(khachHang);
-        return new ResponseEntity<>(saved, HttpStatus.CREATED);
+    @Operation(summary = "Thêm khách hàng mới")
+    public ResponseEntity<ApiResponse<KhachHangResponse>> create(
+            @Valid @RequestBody KhachHangRequest request) {
+
+        KhachHangResponse response = khachHangService.create(request);
+
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.ok("Thêm khách hàng thành công", response));
     }
 
-    // 5. Cập nhật thông tin khách hàng
     @PutMapping("/{id}")
-    public ResponseEntity<KhachHang> updateKhachHang(@PathVariable Integer id, @Valid @RequestBody KhachHang khachHang) {
-        KhachHang updated = khachHangService.updateKhachHang(id, khachHang);
-        return ResponseEntity.ok(updated);
-    }
-
-    // 6. Xóa mềm khách hàng (đánh dấu daXoa = 1 kèm lý do)
-    @DeleteMapping("/{id}/soft")
-    public ResponseEntity<Void> softDeleteKhachHang(
+    @Operation(summary = "Cập nhật khách hàng")
+    public ResponseEntity<ApiResponse<KhachHangResponse>> update(
             @PathVariable Integer id,
-            @RequestParam(defaultValue = "Không có lý do cụ thể") String lyDo) {
-        khachHangService.softDeleteKhachHang(id, lyDo);
-        return ResponseEntity.noContent().build();
+            @Valid @RequestBody KhachHangRequest request) {
+
+        return ResponseEntity.ok(
+                ApiResponse.ok(
+                        "Cập nhật thành công",
+                        khachHangService.update(id, request)
+                )
+        );
     }
 
-    // 7. Xóa vĩnh viễn khỏi Database
+    @DeleteMapping("/{id}")
+    @Operation(summary = "Xóa mềm khách hàng")
+    public ResponseEntity<ApiResponse<Void>> delete(
+            @PathVariable Integer id,
+            @RequestBody(required = false) Map<String, String> body) {
+
+        String lyDo = body != null ? body.get("lyDo") : null;
+
+        khachHangService.softDelete(id, lyDo);
+
+        return ResponseEntity.ok(
+                ApiResponse.ok("Đã chuyển vào thùng rác", null)
+        );
+    }
+
     @DeleteMapping("/{id}/permanent")
-    public ResponseEntity<Void> deleteKhachHangPermanently(@PathVariable Integer id) {
-        khachHangService.deleteKhachHangPermanently(id);
-        return ResponseEntity.noContent().build();
+    @Operation(summary = "Xóa vĩnh viễn khách hàng")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<Void>> deletePermanent(
+            @PathVariable Integer id) {
+
+        khachHangService.deletePermanent(id);
+
+        return ResponseEntity.ok(
+                ApiResponse.ok("Đã xóa vĩnh viễn", null)
+        );
     }
 
-    // 8. Lấy thông tin dùng thử của khách hàng (bao gồm số ngày còn lại tính từ F01)
+    @GetMapping("/thung-rac")
+    @Operation(summary = "Lấy danh sách khách hàng trong thùng rác")
+    public ResponseEntity<ApiResponse<List<KhachHangResponse>>> getTrash() {
+
+        return ResponseEntity.ok(
+                ApiResponse.ok(khachHangService.getTrash())
+        );
+    }
+
+    @PostMapping("/{id}/khoi-phuc")
+    @Operation(summary = "Khôi phục khách hàng")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    public ResponseEntity<ApiResponse<Void>> restore(
+            @PathVariable Integer id) {
+
+        khachHangService.restore(id);
+
+        return ResponseEntity.ok(
+                ApiResponse.ok("Khôi phục thành công", null)
+        );
+    }
+
     @GetMapping("/{id}/dungthu")
-    public ResponseEntity<TrialResponse> getTrialDetails(@PathVariable Integer id) {
-        TrialResponse response = khachHangService.getTrialDetails(id);
-        return ResponseEntity.ok(response);
+    @Operation(summary = "Lấy thông tin dùng thử")
+    public ResponseEntity<ApiResponse<TrialResponse>> getTrialDetails(
+            @PathVariable Integer id) {
+
+        return ResponseEntity.ok(
+                ApiResponse.ok(
+                        khachHangService.getTrialDetails(id)
+                )
+        );
     }
 
-    // 9. Cập nhật thông tin dùng thử (tích hợp Trigger TRG04 của Database)
     @PutMapping("/{id}/dungthu")
-    public ResponseEntity<TrialResponse> updateTrialDetails(@PathVariable Integer id, @Valid @RequestBody TrialUpdateRequest request) {
-        TrialResponse response = khachHangService.updateTrialDetails(id, request);
-        return ResponseEntity.ok(response);
+    @Operation(summary = "Cập nhật thông tin dùng thử")
+    public ResponseEntity<ApiResponse<TrialResponse>> updateTrialDetails(
+            @PathVariable Integer id,
+            @Valid @RequestBody TrialUpdateRequest request) {
+
+        return ResponseEntity.ok(
+                ApiResponse.ok(
+                        "Cập nhật dùng thử thành công",
+                        khachHangService.updateTrialDetails(id, request)
+                )
+        );
     }
 }

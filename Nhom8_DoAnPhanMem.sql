@@ -1,4 +1,4 @@
-﻿-- ================================================================
+-- ================================================================
 -- HỆ THỐNG QUẢN LÝ KHÁCH HÀNG - BỘ PHẬN MARKETING CÔNG TY PHẦN MỀM
 -- Nhóm 8 - Đồ Án Phần Mềm
 -- ================================================================
@@ -109,8 +109,8 @@ CREATE TABLE KhachHang (
     maNguonKH         INT NULL FOREIGN KEY REFERENCES NguonKhachHang(maNguon),
     maPhuongXa        INT NULL FOREIGN KEY REFERENCES PhuongXa(maPhuongXa),
     hoTen             NVARCHAR(100) NOT NULL,
-    email             VARCHAR(150) UNIQUE NOT NULL,
-    soDienThoai       VARCHAR(15) UNIQUE NOT NULL,
+    email             VARCHAR(150) NOT NULL,
+    soDienThoai       VARCHAR(15) NOT NULL,
     gioiTinh          NVARCHAR(10) NULL,
     ngaySinh          DATE NULL,
     congTy            NVARCHAR(150) NULL,
@@ -494,9 +494,9 @@ CREATE TABLE LichSuXuatDuLieu (
 
 -- Dữ liệu Vai Trò
 INSERT INTO VaiTro (tenVaiTro, moTa) VALUES
-    (N'Admin',               N'Quản trị viên hệ thống'),
-    (N'Trưởng phòng',        N'Trưởng phòng Marketing'),
-    (N'Nhân viên Marketing', N'Nhân viên Marketing');
+    (N'ADMIN',    N'Quản trị viên hệ thống'),
+    (N'MANAGER',  N'Trưởng phòng Marketing'),
+    (N'EMPLOYEE', N'Nhân viên Marketing');
 
 -- Dữ liệu Tỉnh Thành
 INSERT INTO TinhThanh (tenTinhThanh, loai) VALUES
@@ -528,10 +528,10 @@ INSERT INTO NguonKhachHang (tenNguon, moTa, loaiNguon) VALUES
 
 -- Dữ liệu Tài Khoản & Nhân Viên
 INSERT INTO TaiKhoan (maVaiTro, email, matKhau, trangThai) VALUES
-    (1, 'admin@gmail.com',  'admin123',  N'Hoạt động'),
-    (2, 'anhthu@gmail.com', 'tp123',     N'Hoạt động'),
-    (3, 'nv01@crm.vn',		'nv01123',   N'Hoạt động'),
-    (3, 'nv02@crm.vn',		'nv02123',   N'Hoạt động');
+    (1, 'admin@gmail.com',  '$2a$10$BC.NFoDH3Kc39VaNL/w1T.a.s4uu27vhY.GtEIbTrYgviGCQXvlya', N'Hoạt động'),
+    (2, 'anhthu@gmail.com', '$2a$10$5UPARL4zd7gt5E9dh3k29O8W/VOuCC4vlbLZB/WYzVYtX3Gp0a0ZK', N'Hoạt động'),
+    (3, 'nv01@crm.vn',      '$2a$10$V0ERJCZ5a7Sdd.qtDdUTkemI1a9lHnHI.8HZbu7pJMKgDRe9suVQC', N'Hoạt động'),
+    (3, 'nv02@crm.vn',      '$2a$10$q4PJYjZKXo4S1k6xbKXCTeaw1UaL/RB7gsdIQMmOio.zcjGy0QYeu', N'Hoạt động');
 
 INSERT INTO NhanVien (maTaiKhoan, hoTen, soDienThoai, chucVu, maPhuongXa) VALUES
     (1, N'Admin',     '0901000001', N'Quản trị viên', 1),
@@ -574,8 +574,8 @@ INSERT INTO LichSuTuongTac (maKhachHang, maNhanVien, loaiTuongTac, tieuDe, noiDu
 
 -- Dữ liệu Hợp Đồng
 INSERT INTO HopDong_GiaoDich (maKhachHang, maChienDich, tenHopDong, giaTriHopDong, trangThaiHopDong, ngayChotDon) VALUES
-    (1, 1, N'HĐ Phần mềm CRM - ABC Corp', 120000000, N'Thắng',              '2026-10-15'),
-    (3, 2, N'HĐ Module Bán hàng - Shop',   45000000,  N'Thắng',             '2026-05-20'),
+    (1, 1, N'HĐ Phần mềm CRM - ABC Corp', 120000000, N'Thắng',              DATEADD(DAY, 30, CAST(GETDATE() AS DATE))),
+    (3, 2, N'HĐ Module Bán hàng - Shop',   45000000,  N'Thắng',             DATEADD(DAY, 7, CAST(GETDATE() AS DATE))),
     (2, 1, N'HĐ Tư vấn - XYZ Corp',        30000000,  N'Đang thương lượng',  NULL);
 
 -- Dữ liệu Chi Phí Chiến Dịch
@@ -603,6 +603,7 @@ INSERT INTO MauThongDiep (tieuDe, noiDung, loaiThongDiep, maNhanVienTao) VALUES
     (N'Chúc mừng sinh nhật khách hàng',
      N'Kính gửi {hoTen}, nhân dịp sinh nhật, chúng tôi xin gửi tặng bạn ưu đãi đặc biệt 15%!',
      N'Zalo', 2);
+GO
 
 -- ================================================================
 -- PHẦN 3: FUNCTIONS
@@ -639,6 +640,7 @@ SELECT dbo.fn_SoNgayConLaiDungThu(1) AS SoNgayConLai;
 SELECT maKhachHang,
        dbo.fn_SoNgayConLaiDungThu(maKhachHang) AS SoNgayConLai
 FROM KhachHang;
+GO
 
 
 -- ----------------------------------------------------------------
@@ -674,6 +676,7 @@ SELECT dbo.fn_TinhROI(2) AS ROI;
 SELECT maChienDich,
        dbo.fn_TinhROI(maChienDich) AS ROI
 FROM ChienDich;
+GO
 
 -- ----------------------------------------------------------------
 -- F03: Đếm số tương tác trong N ngày gần nhất của một khách hàng
@@ -700,6 +703,7 @@ SELECT maKhachHang,
 FROM KhachHang;
 -- Không có tương tác
 SELECT dbo.fn_SoTuongTacGanDay(999, 7);
+GO
 
 -- ----------------------------------------------------------------
 -- F04: Đếm số khách hàng đang được phụ trách bởi một nhân viên
@@ -724,6 +728,7 @@ SELECT dbo.fn_SoKhachHangPhuTrach(3) AS SoKhachHang;
 SELECT maNhanVien,
        dbo.fn_SoKhachHangPhuTrach(maNhanVien) AS SoKhachHang
 FROM NhanVien;
+GO
 
 -- ----------------------------------------------------------------
 -- F05 : Tính tỉ lệ chuyển đổi
@@ -747,6 +752,7 @@ BEGIN
 
     RETURN @chuyenDoi * 100.0 / @tong;
 END;
+GO
 
 ---TEST F05 fn_TyLeChuyenDoi
 SELECT 
@@ -754,6 +760,34 @@ SELECT
     cd.tenChienDich,
     dbo.fn_TyLeChuyenDoi(cd.maChienDich) AS TyLeChuyenDoi
 FROM ChienDich cd;
+GO
+
+-- ----------------------------------------------------------------
+-- F06: Kiểm tra trùng email hoặc số điện thoại của khách hàng
+-- ----------------------------------------------------------------
+CREATE FUNCTION fn_KiemTraTrungLap (
+    @email VARCHAR(150),
+    @soDienThoai VARCHAR(15),
+    @maKhachHangBoQua INT = NULL
+)
+RETURNS BIT
+AS
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM KhachHang
+        WHERE daXoa = 0
+          AND (@maKhachHangBoQua IS NULL OR maKhachHang <> @maKhachHangBoQua)
+          AND (
+              (@email IS NOT NULL AND email = @email)
+              OR (@soDienThoai IS NOT NULL AND soDienThoai = @soDienThoai)
+          )
+    )
+        RETURN 1;
+
+    RETURN 0;
+END;
+GO
 
 -- ================================================================
 -- PHẦN 4: STORED PROCEDURES
@@ -1182,6 +1216,7 @@ select maKhachHang, hoTen, daXoa, lyDoXoa from KhachHang where maKhachHang IN (1
 -- 2. Xem các tương tác, nhắc nhở của KH 4 (nếu có) đã chuyển sang KH 1 chưa?
 select * from LichSuTuongTac where maKhachHang = 1;
 select * from NhacNho where maKhachHang = 1;
+GO
 
 -- ----------------------------------------------------------------
 -- SP07: Xem thống kê tổng quan hệ thống
@@ -1211,6 +1246,7 @@ GO
 
 -- TEST SP7: và xem kết quả thống kê tổng quan
 EXEC sp_ThongKeTongQuan;
+GO
 
 -- ----------------------------------------------------------------
 -- SP08: Tạo tài khoản người dùng mới (Admin dùng)
@@ -1268,6 +1304,7 @@ EXEC sp_TaoTaiKhoan
 	--check kết quả
 select * from TaiKhoan;
 select * from NhanVien;
+GO
 
 -- ----------------------------------------------------------------
 -- SP09: Thêm nhắc nhở thông minh cho khách hàng
@@ -1299,12 +1336,14 @@ END;
 GO
 
 -- TEST SP9: Thêm nhắc nhở gọi điện vào tháng sau
+DECLARE @thoiGianNhacTest DATETIME = DATEADD(DAY, 30, GETDATE());
+
 EXEC sp_ThemNhacNho 
     @maKhachHang = 1, 
     @maNhanVien = 3, 
     @tieuDe = N'Gọi chốt deal gia hạn hợp đồng', 
     @loaiNhacNho = N'Gọi điện', 
-    @thoiGianNhac = '2026-05-15 14:00:00', 
+    @thoiGianNhac = @thoiGianNhacTest, 
     @nhacTruocPhut = 30, 
     @moTa = N'Hỏi xem hệ thống chạy ổn định không';
 
@@ -1313,6 +1352,7 @@ EXEC sp_ThemNhacNho
 select * from NhacNho;
 -- 2. Kiểm tra Trigger TRG03 đã đẩy thông báo cho nhân viên số 3 chưa
 select * from ThongBao where maNhanVien = 3;
+GO
 
 -- ----------------------------------------------------------------
 -- SP10: Gửi thông điệp cho khách hàng và cập nhật lượt sử dụng mẫu
@@ -1355,6 +1395,7 @@ EXEC sp_GuiThongDiep
 select * from LichSuGuiThongDiep;
 -- Kiểm tra Cột luotSuDung của maMau = 1 trong bảng MauThongDiep
 select maMau, tieuDe, luotSuDung from MauThongDiep where maMau = 1;
+GO
 
 -- ----------------------------------------------------------------
 -- SP11: Xem báo cáo hiệu suất nhân viên theo tháng
@@ -1401,6 +1442,7 @@ EXEC sp_BaoCaoHieuSuatNhanVien
 EXEC sp_BaoCaoHieuSuatNhanVien 
     @thang = 3, 
     @nam = 2026;
+GO
 
 -- ================================================================
 -- PHẦN 5: TRIGGERS
@@ -1445,6 +1487,7 @@ FROM LichSuTrangThaiKhachHang
 WHERE maKhachHang = 1
 ORDER BY ngayThayDoi DESC;
  
+GO
 
 -- ----------------------------------------------------------------
 -- TRG02: Tự động tạo thông báo cho nhân viên khi được
@@ -1493,6 +1536,7 @@ SELECT maThongBao, maNhanVien, tieuDe, noiDung, loaiThongBao, thoiGianTao
 FROM ThongBao
 WHERE maNhanVien = 1 AND loaiThongBao = N'Phân công'
 ORDER BY thoiGianTao DESC;
+GO
 
 -- ----------------------------------------------------------------
 -- TRG03: Khi thêm nhắc nhở, tự động tạo thông báo cho nhân viên
@@ -1577,6 +1621,7 @@ UPDATE KhachHang SET ngayCapNhat = GETDATE() WHERE maKhachHang = 3;
 -- 3. Kiểm tra kết quả (trangThaiDungThu tự động nhảy thành 'Hết hạn dùng thử')
 SELECT maKhachHang, hoTen, trangThaiDungThu 
 FROM KhachHang WHERE maKhachHang = 3;
+GO
 
 -- ----------------------------------------------------------------
 -- TRG06: Khi hợp đồng chuyển sang trạng thái 'Thắng',

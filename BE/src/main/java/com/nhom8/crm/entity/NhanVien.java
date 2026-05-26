@@ -1,10 +1,11 @@
 package com.nhom8.crm.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
+
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 @Entity
 @Table(name = "NhanVien")
@@ -21,7 +22,6 @@ public class NhanVien {
     @Column(name = "maNhanVien")
     private Integer maNhanVien;
 
-    // Quan hệ 1-1 với TaiKhoan (Một Nhân viên có duy nhất một Tài khoản)
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "maTaiKhoan", nullable = false, unique = true)
     private TaiKhoan taiKhoan;
@@ -38,9 +38,9 @@ public class NhanVien {
     @Column(name = "anhDaiDien", length = 255)
     private String anhDaiDien;
 
-    // Map mã Phường Xã đơn giản bằng ID hoặc ManyToOne tùy chọn. Ở đây dùng ID minh họa.
-    @Column(name = "maPhuongXa")
-    private Integer maPhuongXa;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "maPhuongXa")
+    private PhuongXa phuongXa;
 
     @Column(name = "diaChiChiTiet", length = 255)
     private String diaChiChiTiet;
@@ -57,11 +57,20 @@ public class NhanVien {
     @Column(name = "ghiChu", length = 500)
     private String ghiChu;
 
-    @Builder.Default
     @Column(name = "ngayTao")
-    private LocalDateTime ngayTao = LocalDateTime.now();
+    private LocalDateTime ngayTao;
 
-    @Builder.Default
     @Column(name = "ngayCapNhat")
-    private LocalDateTime ngayCapNhat = LocalDateTime.now();
+    private LocalDateTime ngayCapNhat;
+
+    @PrePersist
+    protected void onCreate() {
+        ngayTao = LocalDateTime.now();
+        ngayCapNhat = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        ngayCapNhat = LocalDateTime.now();
+    }
 }

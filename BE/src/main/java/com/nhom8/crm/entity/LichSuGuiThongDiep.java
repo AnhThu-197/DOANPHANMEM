@@ -1,9 +1,10 @@
 package com.nhom8.crm.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
+
 import java.time.LocalDateTime;
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 @Entity
 @Table(name = "LichSuGuiThongDiep")
@@ -22,18 +23,37 @@ public class LichSuGuiThongDiep {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "maKhachHang", nullable = false)
+    @JsonIgnoreProperties({
+            "nguoiPhuTrach",
+            "nganhNghe",
+            "nguonKhachHang",
+            "phuongXa",
+            "hibernateLazyInitializer",
+            "handler"
+    })
     private KhachHang khachHang;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "maNhanVien")
+    @JsonIgnoreProperties({
+            "taiKhoan",
+            "phuongXa",
+            "hibernateLazyInitializer",
+            "handler"
+    })
     private NhanVien nhanVien;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "maMau")
+    @JsonIgnoreProperties({
+            "nhanVienTao",
+            "hibernateLazyInitializer",
+            "handler"
+    })
     private MauThongDiep mauThongDiep;
 
     @Column(name = "kenhGui", nullable = false, length = 50)
-    private String kenhGui; // 'Email', 'SMS', 'Zalo'
+    private String kenhGui;
 
     @Column(name = "tieuDe", length = 200)
     private String tieuDe;
@@ -41,19 +61,18 @@ public class LichSuGuiThongDiep {
     @Column(name = "noiDung", nullable = false, columnDefinition = "NVARCHAR(MAX)")
     private String noiDung;
 
-    @Builder.Default
     @Column(name = "trangThaiGui", nullable = false, length = 50)
-    private String trangThaiGui = "Đã gửi"; // 'Đã gửi', 'Thất bại', 'Chờ gửi'
+    @Builder.Default
+    private String trangThaiGui = "Đã gửi";
 
     @Column(name = "lyDoThatBai", length = 300)
     private String lyDoThatBai;
 
-    @Builder.Default
     @Column(name = "thoiGianGui")
-    private LocalDateTime thoiGianGui = LocalDateTime.now();
+    private LocalDateTime thoiGianGui;
 
     @PrePersist
     protected void onCreate() {
-        if (thoiGianGui == null) thoiGianGui = LocalDateTime.now();
+        thoiGianGui = LocalDateTime.now();
     }
 }
