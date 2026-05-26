@@ -5,6 +5,7 @@ import com.nhom8.crm.dto.request.TrialUpdateRequest;
 import com.nhom8.crm.dto.response.ApiResponse;
 import com.nhom8.crm.dto.response.KhachHangResponse;
 import com.nhom8.crm.dto.response.TrialResponse;
+import com.nhom8.crm.dto.response.LichSuPhanBoResponse;
 import com.nhom8.crm.service.KhachHangService;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -42,6 +43,12 @@ public class KhachHangController {
         return ResponseEntity.ok(
                 ApiResponse.ok(khachHangService.getAllIncludingDeleted())
         );
+    }
+
+    @GetMapping("/lich-su-phan-bo")
+    @Operation(summary = "Lấy lịch sử phân bổ khách hàng")
+    public ResponseEntity<ApiResponse<List<LichSuPhanBoResponse>>> getLichSuPhanBo() {
+        return ResponseEntity.ok(ApiResponse.ok(khachHangService.getLichSuPhanBo()));
     }
 
     @GetMapping("/{id}")
@@ -89,6 +96,32 @@ public class KhachHangController {
         );
     }
 
+    @PatchMapping("/{id}/phan-bo")
+    @Operation(summary = "Phân bổ khách hàng cho nhân viên")
+    public ResponseEntity<ApiResponse<Void>> phanBoKhachHang(
+            @PathVariable Integer id,
+            @RequestBody(required = false) Map<String, Object> body) {
+
+        Integer maNhanVienMoi = null;
+        String phuongPhap = "round_robin";
+
+        if (body != null) {
+            Object maNhanVienObj = body.get("maNhanVienMoi");
+            if (maNhanVienObj instanceof Number) {
+                maNhanVienMoi = ((Number) maNhanVienObj).intValue();
+            }
+
+            Object phuongPhapObj = body.get("phuongPhap");
+            if (phuongPhapObj != null) {
+                phuongPhap = phuongPhapObj.toString();
+            }
+        }
+
+        khachHangService.phanBoKhachHang(id, maNhanVienMoi, phuongPhap);
+
+        return ResponseEntity.ok(ApiResponse.ok("Phân bổ khách hàng thành công", null));
+    }
+
     @DeleteMapping("/{id}")
     @Operation(summary = "Xóa mềm khách hàng")
     public ResponseEntity<ApiResponse<Void>> delete(
@@ -129,10 +162,7 @@ public class KhachHangController {
     @PostMapping("/{id}/khoi-phuc")
     @Operation(summary = "Khôi phục khách hàng")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
-    public ResponseEntity<ApiResponse<Void>> restore(
-            @PathVariable Integer id) {
-
-        khachHangService.restore(id);
+    public ResponseEntity<ApiResponse<Void>> restore(@PathVariable Integer id) {.restore(id);
 
         return ResponseEntity.ok(
                 ApiResponse.ok("Khôi phục thành công", null)

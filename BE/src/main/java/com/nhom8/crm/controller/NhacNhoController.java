@@ -86,6 +86,5 @@ public class NhacNhoController {
         nhacNho.setTrangThaiNhacNho("Đã hủy");
         nhacNhoRepository.save(nhacNho);
         return ResponseEntity.ok(ApiResponse.ok("Đã hủy nhắc nhở", null));
->>>>>>> develop
     }
 }

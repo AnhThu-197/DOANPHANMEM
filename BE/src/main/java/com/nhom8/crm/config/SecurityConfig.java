@@ -64,19 +64,31 @@ public class SecurityConfig {
             .sessionManagement(session ->
                 session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                // Public endpoints
-                .requestMatchers("/auth/**").permitAll()
-                .requestMatchers("/test-email/**").permitAll()   // debug endpoint
-                .requestMatchers("/v3/api-docs/**", "/swagger-ui/**",
-                                 "/swagger-ui.html").permitAll()
-                // Admin only
-                .requestMatchers("/admin/**").hasRole("ADMIN")
-                .requestMatchers(HttpMethod.DELETE, "/nhan-vien/**").hasRole("ADMIN")
-                .requestMatchers(HttpMethod.GET, "/bao-cao/tong-quan").authenticated()
-                // Manager + Admin
-                .requestMatchers("/bao-cao/**").hasAnyRole("ADMIN", "MANAGER")
-                // All authenticated users
-                .anyRequest().authenticated()
+                    // Public endpoints
+                    .requestMatchers("/auth/**").permitAll()
+                    .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
+
+                    // Tạm mở khách hàng để test Swagger/FE
+                    .requestMatchers("/khach-hang/**").permitAll()
+                    .requestMatchers("/api/khach-hang/**").permitAll()
+
+                    // Tạm mở nhân viên để test
+                    .requestMatchers(HttpMethod.GET, "/nhan-vien").permitAll()
+                    .requestMatchers(HttpMethod.GET, "/api/nhan-vien").permitAll()
+
+                    // Admin only
+                    .requestMatchers("/admin/**").hasRole("ADMIN")
+                    .requestMatchers(HttpMethod.DELETE, "/nhan-vien/**").hasRole("ADMIN")
+
+                    // Báo cáo
+                    .requestMatchers(HttpMethod.GET, "/bao-cao/tong-quan").authenticated()
+                    .requestMatchers("/bao-cao/**").hasAnyRole("ADMIN", "MANAGER")
+
+                    // Đồng bộ API
+                    .requestMatchers("/dong-bo-api/**").hasAnyRole("ADMIN", "MANAGER")
+
+                    // Các API còn lại phải đăng nhập
+                    .anyRequest().authenticated()
             )
             .addFilterBefore(jwtAuthenticationFilter,
                              UsernamePasswordAuthenticationFilter.class);

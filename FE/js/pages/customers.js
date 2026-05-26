@@ -2,12 +2,27 @@
 // TRANG QUẢN LÝ KHÁCH HÀNG
 // ============================================
 
-function loadCustomers() {
+async function loadCustomers() {
     const mainContent = document.getElementById('mainContent');
     const user = AUTH.getCurrentUser();
-    const canDelete = user && user.role !== 'employee';
-    const isManagerOrAdmin = user && (user.role === 'manager' || user.role === 'admin');
 
+    const roleRaw = removeVietnameseAccentForMap(
+        user?.role || user?.vaiTro || user?.chucVu || ''
+    );
+
+    const isManagerOrAdmin =
+        roleRaw.includes('admin') ||
+        roleRaw.includes('manager') ||
+        roleRaw.includes('truong phong');
+
+    const canDelete = isManagerOrAdmin;
+
+    loadDeleteRequestsFromLocalStorage();
+    
+    await loadCustomersFromBackend();
+    await loadEmployeesFromBackend();
+    buildAssignmentEmployeeStats();
+    await loadAssignmentHistoryFromBackend();
     mainContent.innerHTML = `
         <h2 class="page-title">Quản lý Khách hàng</h2>
         <div class="tabs" style="margin-bottom: 20px;">
@@ -43,8 +58,8 @@ function loadCustomers() {
                                 <option value="">Tất cả</option>
                                 <option value="facebook">Facebook</option>
                                 <option value="google">Google</option>
-                                <option value="direct">Trực tiếp</option>
                                 <option value="referral">Giới thiệu</option>
+                                <option value="event">Sự kiện Tech</option>
                                 <option value="website">Website</option>
                             </select>
                         </div>
@@ -167,10 +182,46 @@ function loadCustomers() {
                         </select>
                     </div>
                     <div id="assignRoundRobinSettings" style="background:white;padding:20px;border-radius:8px;margin-top:15px;">
-                        <p style="color:#64748b;margin-bottom:15px;"><i class="fas fa-info-circle"></i> Khách hàng mới sẽ được chia đều cho các nhân viên đang online theo thứ tự xoay vòng</p>
+                        <p style="color:#64748b;margin-bottom:15px;">
+                            <i class="fas fa-info-circle"></i>
+                            Khách hàng mới sẽ được chia đều cho các nhân viên đang online theo thứ tự xoay vòng
+                        </p>
+
+                        <div id="assignmentEmployeeCards" style="display:grid;grid-template-columns:repeat(3,1fr);gap:15px;">
+                            ${renderAssignmentEmployeeCards()}
+                        </div>
                     </div>
                     <div id="assignRatioSettings" style="background:white;padding:20px;border-radius:8px;margin-top:15px;display:none;">
-                        <p style="color:#64748b;margin-bottom:15px;"><i class="fas fa-info-circle"></i> Chia khách hàng theo tỷ lệ % cho từng nhân viên</p>
+                        <p style="color:#64748b;margin-bottom:15px;">
+                            <i class="fas fa-info-circle"></i>
+                            Chia khách hàng theo tỷ lệ %. FE sẽ chọn nhân viên phù hợp rồi gọi API phân bổ.
+                        </p>
+
+                        <div id="assignRatioInputs" style="display:grid;grid-template-columns:repeat(3,1fr);gap:15px;">
+                            ${renderAssignRatioInputs()}
+                        </div>
+                    </div>
+                    <div id="assignManualSettings" style="background:white;padding:20px;border-radius:8px;margin-top:15px;display:none;">
+                        <p style="color:#64748b;margin-bottom:15px;">
+                            <i class="fas fa-info-circle"></i>
+                            Chọn khách hàng chưa phân bổ và nhân viên phụ trách.
+                        </p>
+
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:15px;">
+                            <div>
+                                <label style="font-weight:600;margin-bottom:8px;display:block;">Khách hàng chưa phân bổ</label>
+                                <select id="manualCustomerSelect" style="width:100%;padding:10px;border:1px solid #e2e8f0;border-radius:5px;">
+                                    ${renderUnassignedCustomerOptions()}
+                                </select>
+                            </div>
+
+                            <div>
+                                <label style="font-weight:600;margin-bottom:8px;display:block;">Nhân viên phụ trách</label>
+                                <select id="manualEmployeeSelect" style="width:100%;padding:10px;border:1px solid #e2e8f0;border-radius:5px;">
+                                    ${renderEmployeeOptions()}
+                                </select>
+                            </div>
+                        </div>
                     </div>
                     <div style="margin-top:20px;">
                         <button class="btn btn-primary" onclick="saveAssignSettings()"><i class="fas fa-save"></i> Lưu Cài đặt</button>
@@ -183,7 +234,18 @@ function loadCustomers() {
                         <thead><tr><th>Khách hàng</th><th>Được phân cho</th><th>Phương pháp</th><th>Ngày phân bổ</th></tr></thead>
                         <tbody id="assignmentHistoryTable">
                             ${DATA.assignmentHistory && DATA.assignmentHistory.length > 0
-                                ? DATA.assignmentHistory.slice(0,10).map(h => `<tr><td>${h.customerName}</td><td><strong>${h.employeeName}</strong></td><td><span class="status ${h.method==='round_robin'?'customer':'prospect'}">${h.method==='round_robin'?'Xoay vòng':h.method==='ratio'?'Theo tỷ lệ':'Thủ công'}</span></td><td>${h.date}</td></tr>`).join('')
+                                ? DATA.assignmentHistory.slice(0,20).map(h => `
+                                    <tr>
+                                        <td>${h.customerName}</td>
+                                        <td><strong>${h.employeeName}</strong></td>
+                                        <td>
+                                            <span class="status ${getAssignmentMethodClass(h.method)}">
+                                                ${getAssignmentMethodLabel(h.method)}
+                                            </span>
+                                        </td>
+                                        <td>${h.date}</td>
+                                    </tr>
+                                `).join('')
                                 : `<tr><td colspan="4" style="text-align:center;padding:20px;color:#94a3b8;">Chưa có lịch sử phân bổ</td></tr>`}
                         </tbody>
                     </table>
@@ -191,6 +253,7 @@ function loadCustomers() {
             </div>
         </div>` : ''}
     `;
+    initHeaderCustomerSearch();
 }
 
 // ---- CRUD Khách hàng ----
@@ -198,8 +261,8 @@ function loadCustomers() {
 function openCustomerModal() {
     document.getElementById('customerForm').reset();
     loadEmployeeDropdown('customerAssignedTo', true);
-    const currentUser = AUTH.getCurrentUser();
-    if (currentUser) document.getElementById('customerAssignedTo').value = currentUser.id;
+    const assignedSelect = document.getElementById('customerAssignedTo');
+    if (assignedSelect) assignedSelect.value = '';
     delete document.getElementById('customerModal').dataset.customerId;
     document.getElementById('customerModalTitle').textContent = 'Thêm Khách hàng';
     document.getElementById('customerModal').style.display = 'block';
@@ -210,62 +273,245 @@ function viewCustomer(id) { openCustomerDetailModal(id); }
 function editCustomer(id) { updateCustomer(id); }
 
 function updateCustomer(customerId) {
-    const c = DATA.customers.find(c => c.id === customerId);
-    if (!c) return;
-    document.getElementById('customerName').value = c.name;
-    document.getElementById('customerEmail').value = c.email;
-    document.getElementById('customerPhone').value = c.phone;
-    document.getElementById('customerCompany').value = c.company;
-    document.getElementById('customerStatus').value = c.status;
-    document.getElementById('customerSource').value = c.source;
-    document.getElementById('customerIndustry').value = c.industry;
+    const c = DATA.customers.find(c => Number(c.id) === Number(customerId));
+
+    if (!c) {
+        alert('Không tìm thấy khách hàng.');
+        return;
+    }
+
+    // Load danh sách nhân viên vào dropdown trước
+    loadEmployeeDropdown('customerAssignedTo', true);
+
+    document.getElementById('customerName').value = c.name || '';
+    document.getElementById('customerEmail').value = c.email || '';
+    document.getElementById('customerPhone').value = c.phone || '';
+    document.getElementById('customerCompany').value = c.company || '';
+    document.getElementById('customerStatus').value = c.status || 'suspect';
+
+    // Nguồn khách hàng: chuyển tên nguồn backend về value của dropdown FE
+    document.getElementById('customerSource').value = mapSourceNameToFilterValue(c.source) || '';
+
+    document.getElementById('customerIndustry').value = c.industry || '';
+
+    // Người phụ trách
+    const assignedSelect = document.getElementById('customerAssignedTo');
+    if (assignedSelect) {
+        assignedSelect.value = c.assignedTo || c.maNguoiPhuTrach || '';
+    }
+
+    // Thông tin dùng thử
+    document.getElementById('customerTrialStartDate').value =
+        c.trialStartDate || c.ngayBatDauDungThu || '';
+
+    document.getElementById('customerTrialDays').value =
+        c.trialDays ?? c.soNgayDungThu ?? 0;
+
     document.getElementById('customerModalTitle').textContent = 'Cập nhật Khách hàng';
     document.getElementById('customerModal').dataset.customerId = customerId;
     document.getElementById('customerModal').style.display = 'block';
+    document.body.classList.add('modal-open');
 }
 
-function saveCustomer(e) {
+async function saveCustomer(e) {
     e.preventDefault();
+
     const customerId = document.getElementById('customerModal').dataset.customerId;
-    const currentUser = AUTH.getCurrentUser();
-    const now = new Date().toISOString().split('T')[0];
-    const data = {
-        name:           document.getElementById('customerName').value,
-        email:          document.getElementById('customerEmail').value,
-        phone:          document.getElementById('customerPhone').value,
-        company:        document.getElementById('customerCompany').value,
-        status:         document.getElementById('customerStatus').value,
-        source:         document.getElementById('customerSource').value,
-        industry:       document.getElementById('customerIndustry').value,
-        assignedTo:     parseInt(document.getElementById('customerAssignedTo').value) || null,
-        trialStartDate: document.getElementById('customerTrialStartDate').value || null,
-        trialDays:      parseInt(document.getElementById('customerTrialDays').value) || 0,
-        updatedDate:    now
+    const isUpdate = !!customerId;
+
+    const payload = {
+        hoTen: document.getElementById('customerName').value.trim(),
+        email: document.getElementById('customerEmail').value.trim(),
+        soDienThoai: document.getElementById('customerPhone').value.trim(),
+        congTy: document.getElementById('customerCompany').value.trim(),
+
+        trangThaiKhach: mapUIStatusToBackend(
+            document.getElementById('customerStatus').value
+        ),
+
+        maNguonKH: mapSourceToId(
+            document.getElementById('customerSource').value
+        ),
+
+        maNganhNghe: mapIndustryToId(
+            document.getElementById('customerIndustry').value
+        ),
+
+        // Thêm mới: chưa phân bổ ai
+        // Cập nhật: giữ người phụ trách theo dropdown
+        maNguoiPhuTrach: isUpdate
+            ? (parseInt(document.getElementById('customerAssignedTo').value) || null)
+            : null,
+
+        ngayBatDauDungThu:
+            document.getElementById('customerTrialStartDate').value || null,
+
+        soNgayDungThu:
+            parseInt(document.getElementById('customerTrialDays').value) || 0
     };
-    if (customerId) {
-        const c = DATA.customers.find(c => c.id === parseInt(customerId));
-        if (c) { Object.assign(c, data); alert('✓ Cập nhật khách hàng thành công!'); DATA.addAuditLog('UPDATE_CUSTOMER', `Cập nhật: ${data.name}`, currentUser.id); }
-    } else {
-        const newId = Math.max(...DATA.customers.map(c => c.id), 0) + 1;
-        DATA.customers.push({ id: newId, ...data, score: 0, createdDate: now, lastInteraction: '', deleted: false });
-        alert('✓ Thêm khách hàng thành công!');
-        DATA.addAuditLog('ADD_CUSTOMER', `Thêm: ${data.name}`, currentUser.id);
+
+    console.log('Payload gửi lên backend:', payload);
+
+    try {
+        if (customerId) {
+            await API_SERVICES.khachHang.update(customerId, payload);
+            alert('✓ Cập nhật khách hàng thành công!');
+        } else {
+            await API_SERVICES.khachHang.create(payload);
+            alert('✓ Thêm khách hàng thành công!');
+        }
+
+        closeModal('customerModal');
+
+        await loadCustomers();
+
+    } catch (error) {
+        console.error('Lỗi lưu khách hàng:', error);
+        alert('Lưu khách hàng thất bại. Kiểm tra F12 → Network → POST/PUT /khach-hang.');
     }
-    closeModal('customerModal');
-    loadCustomers();
 }
 
-function deleteCustomer(id) {
-    if (confirm('Bạn có chắc muốn xóa?')) {
-        const c = DATA.customers.find(c => c.id === id);
-        if (c) { c.deleted = true; c.deletedDate = new Date().toLocaleDateString('vi-VN'); }
-        loadCustomers();
+// Chuyển trạng thái trên giao diện sang trạng thái trong database/backend
+function mapUIStatusToBackend(status) {
+    const value = removeVietnameseAccentForMap(status);
+
+    if (value.includes('nguoi truy cap') || value.includes('suspect')) {
+        return 'Người truy cập';
+    }
+
+    if (value.includes('tiem nang') || value.includes('lead')) {
+        return 'KH tiềm năng mới';
+    }
+
+    if (value.includes('trien vong') || value.includes('prospect')) {
+        return 'KH triển vọng';
+    }
+
+    if (value.includes('chinh thuc') || value.includes('customer')) {
+        return 'KH chính thức';
+    }
+
+    if (value.includes('trung thanh') || value.includes('evangelist')) {
+        return 'KH trung thành';
+    }
+
+    return 'Người truy cập';
+}
+
+// Chuyển nguồn khách hàng từ dropdown sang maNguonKH trong SQL
+function mapSourceToId(source) {
+    const value = removeVietnameseAccentForMap(source);
+
+    if (value.includes('facebook')) {
+        return 1; // Facebook Ads
+    }
+
+    if (value.includes('google')) {
+        return 2; // Google Ads
+    }
+
+    if (value.includes('gioi thieu')) {
+        return 3; // Giới thiệu
+    }
+
+    if (value.includes('su kien') || value.includes('event')) {
+        return 4; // Sự kiện Tech
+    }
+
+    if (value.includes('website')) {
+        return 5; // Website
+    }
+
+    // FE có "Trực tiếp" nhưng SQL hiện chưa có nguồn này
+    // Nếu sau này thêm "Trực tiếp" vào bảng NguonKhachHang thì sửa return null thành mã mới.
+    if (value.includes('truc tiep') || value.includes('direct')) {
+        return null;
+    }
+
+    return null;
+}
+
+// Chuyển ngành nghề từ ô nhập sang maNganhNghe trong SQL
+function mapIndustryToId(industry) {
+    const value = removeVietnameseAccentForMap(industry);
+
+    if (value.includes('cong nghe') || value.includes('it')) {
+        return 1; // Công nghệ thông tin
+    }
+
+    if (value.includes('tai chinh') || value.includes('ngan hang')) {
+        return 2; // Tài chính - Ngân hàng
+    }
+
+    if (value.includes('thuong mai') || value.includes('dien tu')) {
+        return 3; // Thương mại điện tử
+    }
+
+    if (value.includes('giao duc')) {
+        return 4; // Giáo dục
+    }
+
+    if (value.includes('y te')) {
+        return 5; // Y tế
+    }
+
+    return null;
+}
+
+// Hàm bỏ dấu tiếng Việt để so sánh dễ hơn
+function removeVietnameseAccentForMap(str) {
+    return String(str || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/đ/g, 'd')
+        .replace(/Đ/g, 'D')
+        .toLowerCase()
+        .trim();
+}
+
+async function deleteCustomer(id) {
+    const c = DATA.customers.find(c => c.id === id);
+
+    if (!c) {
+        alert('Không tìm thấy khách hàng.');
+        return;
+    }
+
+    const lyDo = prompt(`Nhập lý do xóa khách hàng "${c.name}":`);
+
+    if (lyDo === null) {
+        return;
+    }
+
+    if (!lyDo.trim()) {
+        alert('Vui lòng nhập lý do xóa.');
+        return;
+    }
+
+    if (!confirm(`Bạn có chắc muốn xóa khách hàng "${c.name}" không?`)) {
+        return;
+    }
+
+    try {
+        await API_SERVICES.khachHang.delete(id, lyDo.trim());
+
+        alert('✓ Đã xóa khách hàng thành công.');
+
+        await loadCustomers();
+    } catch (error) {
+        console.error('Lỗi xóa khách hàng:', error);
+        alert('Xóa khách hàng thất bại. Kiểm tra F12 → Network → DELETE /khach-hang/{id}.');
     }
 }
 
 function requestDeleteCustomer(customerId) {
     const c = DATA.customers.find(c => c.id === customerId);
-    if (!c) return;
+
+    if (!c) {
+        alert('Không tìm thấy khách hàng.');
+        return;
+    }
+
     document.getElementById('requestDeleteCustomerName').textContent = c.name;
     document.getElementById('requestDeleteForm').dataset.customerId = customerId;
     document.getElementById('requestDeleteReason').value = '';
@@ -275,39 +521,134 @@ function requestDeleteCustomer(customerId) {
 
 function submitDeleteRequest(e) {
     e.preventDefault();
+
     const customerId = parseInt(document.getElementById('requestDeleteForm').dataset.customerId);
-    const reason = document.getElementById('requestDeleteReason').value;
+    const reason = document.getElementById('requestDeleteReason').value.trim();
     const user = AUTH.getCurrentUser();
+    const customer = DATA.customers.find(c => c.id === customerId);
+
+    if (!customer) {
+        alert('Không tìm thấy khách hàng.');
+        return;
+    }
+
+    if (!reason) {
+        alert('Vui lòng nhập lý do đề nghị xóa.');
+        return;
+    }
+
+    if (!DATA.deleteRequests) {
+        DATA.deleteRequests = [];
+    }
+
+    const existedPendingRequest = DATA.deleteRequests.find(r =>
+        r.customerId === customerId && r.status === 'pending'
+    );
+
+    if (existedPendingRequest) {
+        alert('Khách hàng này đã có đề nghị xóa đang chờ duyệt.');
+        return;
+    }
+
     const newId = Math.max(...DATA.deleteRequests.map(r => r.id || 0), 0) + 1;
-    DATA.deleteRequests.push({ id: newId, customerId, customerName: DATA.customers.find(c => c.id === customerId)?.name, reason, requestedBy: user.name, requestedDate: new Date().toLocaleDateString('vi-VN'), status: 'pending' });
-    alert('Đề nghị xóa đã được gửi. Trưởng phòng sẽ duyệt.');
+
+    DATA.deleteRequests.push({
+        id: newId,
+        customerId: customerId,
+        customerName: customer.name,
+        reason: reason,
+        requestedBy: user?.name || user?.hoTen || user?.email || 'Nhân viên',
+        requestedById: user?.id || user?.maNhanVien || null,
+        requestedDate: new Date().toLocaleDateString('vi-VN'),
+        status: 'pending'
+    });
+
+    saveDeleteRequestsToLocalStorage();
+
+    alert('✓ Đề nghị xóa đã được gửi. Trưởng phòng sẽ duyệt.');
+
     closeModal('requestDeleteModal');
     loadCustomers();
 }
 
-function approveDeleteRequest(requestId) {
+function saveDeleteRequestsToLocalStorage() {
+    localStorage.setItem('deleteRequests', JSON.stringify(DATA.deleteRequests || []));
+}
+
+function loadDeleteRequestsFromLocalStorage() {
+    const saved = localStorage.getItem('deleteRequests');
+
+    if (saved) {
+        try {
+            DATA.deleteRequests = JSON.parse(saved);
+        } catch (error) {
+            console.error('Lỗi đọc deleteRequests từ localStorage:', error);
+            DATA.deleteRequests = DATA.deleteRequests || [];
+        }
+    } else {
+        DATA.deleteRequests = DATA.deleteRequests || [];
+    }
+}
+
+async function approveDeleteRequest(requestId) {
     const req = DATA.deleteRequests.find(r => r.id === requestId);
-    if (!req) return;
-    if (confirm(`Duyệt xóa khách hàng "${req.customerName}"?\nLý do: ${req.reason}`)) {
-        req.status = 'approved'; req.approvedBy = AUTH.getCurrentUser().name; req.approvedDate = new Date().toLocaleDateString('vi-VN');
-        const c = DATA.customers.find(c => c.id === req.customerId);
-        if (c) { c.deleted = true; c.deletedDate = new Date().toLocaleDateString('vi-VN'); c.deleteReason = req.reason; }
-        alert('✓ Đã duyệt và chuyển khách hàng vào Thùng rác!');
-        DATA.addAuditLog('APPROVE_DELETE_REQUEST', `Duyệt xóa: ${req.customerName}`, AUTH.getCurrentUser().id);
-        loadCustomers();
+
+    if (!req) {
+        alert('Không tìm thấy đề nghị xóa.');
+        return;
+    }
+
+    if (!confirm(`Duyệt xóa khách hàng "${req.customerName}"?\nLý do: ${req.reason}`)) {
+        return;
+    }
+
+    try {
+        await API_SERVICES.khachHang.delete(req.customerId, req.reason);
+
+        req.status = 'approved';
+        req.approvedBy = AUTH.getCurrentUser()?.name || AUTH.getCurrentUser()?.hoTen || 'Trưởng phòng';
+        req.approvedDate = new Date().toLocaleDateString('vi-VN');
+
+        saveDeleteRequestsToLocalStorage();
+
+        alert('✓ Đã duyệt và chuyển khách hàng vào Thùng rác.');
+
+        await loadCustomers();
+    } catch (error) {
+        console.error('Lỗi duyệt xóa khách hàng:', error);
+        alert('Duyệt xóa thất bại. Kiểm tra F12 → Network → DELETE /khach-hang/{id}.');
     }
 }
 
 function rejectDeleteRequest(requestId) {
     const req = DATA.deleteRequests.find(r => r.id === requestId);
-    if (!req) return;
-    const reason = prompt(`Lý do từ chối xóa "${req.customerName}":`);
-    if (reason) {
-        req.status = 'rejected'; req.rejectedBy = AUTH.getCurrentUser().name; req.rejectedDate = new Date().toLocaleDateString('vi-VN'); req.rejectReason = reason;
-        alert('✓ Đã từ chối đề nghị xóa');
-        DATA.addAuditLog('REJECT_DELETE_REQUEST', `Từ chối xóa: ${req.customerName}`, AUTH.getCurrentUser().id);
-        loadCustomers();
+
+    if (!req) {
+        alert('Không tìm thấy đề nghị xóa.');
+        return;
     }
+
+    const reason = prompt(`Lý do từ chối xóa "${req.customerName}":`);
+
+    if (reason === null) {
+        return;
+    }
+
+    if (!reason.trim()) {
+        alert('Vui lòng nhập lý do từ chối.');
+        return;
+    }
+
+    req.status = 'rejected';
+    req.rejectedBy = AUTH.getCurrentUser()?.name || AUTH.getCurrentUser()?.hoTen || 'Trưởng phòng';
+    req.rejectedDate = new Date().toLocaleDateString('vi-VN');
+    req.rejectReason = reason.trim();
+
+    saveDeleteRequestsToLocalStorage();
+
+    alert('✓ Đã từ chối đề nghị xóa.');
+
+    loadCustomers();
 }
 
 function viewDeleteRequest(requestId) {
@@ -355,16 +696,57 @@ function saveDetailInteraction(e) {
 // ---- Filter & Render ----
 
 function applyCustomerFilter() {
-    const search = document.getElementById('searchCustomerInput')?.value.toLowerCase().trim() || '';
+    const searchInPage = document.getElementById('searchCustomerInput')?.value || '';
+    const searchHeader = document.getElementById('searchInput')?.value || '';
+
+    const search = removeVietnameseAccentForMap(
+        searchInPage || searchHeader
+    );
+
     const status = document.getElementById('filterStatus')?.value || '';
     const source = document.getElementById('filterSource')?.value || '';
+
     let filtered = DATA.customers.filter(c => !c.deleted);
-    if (search) filtered = filtered.filter(c => c.name.toLowerCase().includes(search) || c.email.toLowerCase().includes(search) || c.phone.includes(search) || c.company.toLowerCase().includes(search));
-    if (status) filtered = filtered.filter(c => c.status === status);
-    if (source) filtered = filtered.filter(c => c.source === source);
+
+    if (search) {
+        filtered = filtered.filter(c => {
+            const text = removeVietnameseAccentForMap(`
+                ${c.name || ''}
+                ${c.email || ''}
+                ${c.phone || ''}
+                ${c.company || ''}
+            `);
+
+            return text.includes(search);
+        });
+    }
+
+    if (status) {
+        filtered = filtered.filter(c => c.status === status);
+    }
+
+    if (source) {
+        filtered = filtered.filter(c => {
+            return mapSourceNameToFilterValue(c.source) === source;
+        });
+    }
+
     renderCustomersTable(filtered);
+
     const el = document.getElementById('totalCustomersCount');
     if (el) el.textContent = filtered.length;
+}
+
+function mapSourceNameToFilterValue(sourceName) {
+    const value = removeVietnameseAccentForMap(sourceName);
+
+    if (value.includes('facebook')) return 'facebook';
+    if (value.includes('google')) return 'google';
+    if (value.includes('gioi thieu')) return 'referral';
+    if (value.includes('su kien') || value.includes('event')) return 'event';
+    if (value.includes('website')) return 'website';
+
+    return '';
 }
 
 function resetCustomerFilter() {
@@ -379,7 +761,15 @@ function resetCustomerFilter() {
 
 function renderCustomersTable(customers) {
     const user = AUTH.getCurrentUser();
-    const canDelete = user && user.role !== 'employee';
+
+    const roleRaw = removeVietnameseAccentForMap(
+        user?.role || user?.vaiTro || user?.chucVu || ''
+    );
+
+    const canDelete =
+        roleRaw.includes('admin') ||
+        roleRaw.includes('manager') ||
+        roleRaw.includes('truong phong');
     const tbody = document.getElementById('customersTable');
     if (!tbody) return;
     if (customers.length === 0) {
@@ -393,10 +783,44 @@ function renderCustomersTable(customers) {
     }).join('');
 }
 
-function changeCategoryCustomer(customerId, newStatus) {
+async function changeCategoryCustomer(customerId, newStatus) {
     if (!newStatus) return;
+
     const c = DATA.customers.find(c => c.id === customerId);
-    if (c) { c.status = newStatus; alert(`Đã chuyển ${c.name} sang: ${getStatusLabel(newStatus)}`); loadCustomers(); }
+    if (!c) {
+        alert('Không tìm thấy khách hàng.');
+        return;
+    }
+
+    const payload = {
+        hoTen: c.name,
+        email: c.email,
+        soDienThoai: c.phone,
+        congTy: c.company,
+
+        // Cấp độ mới cần cập nhật
+        trangThaiKhach: mapUIStatusToBackend(newStatus),
+
+        // Giữ lại các thông tin cũ
+        maNguonKH: mapSourceToId(c.source),
+        maNganhNghe: mapIndustryToId(c.industry),
+        maNguoiPhuTrach: c.assignedTo || null,
+        ngayBatDauDungThu: c.trialStartDate || null,
+        soNgayDungThu: c.trialDays || 0
+    };
+
+    try {
+        await API_SERVICES.khachHang.update(customerId, payload);
+
+        c.status = newStatus;
+
+        alert(`✓ Đã chuyển ${c.name} sang: ${getStatusLabel(newStatus)}`);
+
+        await loadCustomers();
+    } catch (error) {
+        console.error('Lỗi phân loại khách hàng:', error);
+        alert('Phân loại khách hàng thất bại. Kiểm tra F12 → Network → PUT /khach-hang/{id}.');
+    }
 }
 
 function openCategoryModal(category) {
@@ -421,8 +845,14 @@ function exportCustomersData() {
 
 function updateAssignMethodUI() {
     const method = document.getElementById('assignMethod').value;
-    document.getElementById('assignRoundRobinSettings').style.display = method === 'round_robin' ? 'block' : 'none';
-    document.getElementById('assignRatioSettings').style.display = method === 'ratio' ? 'block' : 'none';
+
+    const roundRobinBox = document.getElementById('assignRoundRobinSettings');
+    const ratioBox = document.getElementById('assignRatioSettings');
+    const manualBox = document.getElementById('assignManualSettings');
+
+    if (roundRobinBox) roundRobinBox.style.display = method === 'round_robin' ? 'block' : 'none';
+    if (ratioBox) ratioBox.style.display = method === 'ratio' ? 'block' : 'none';
+    if (manualBox) manualBox.style.display = method === 'manual' ? 'block' : 'none';
 }
 
 function saveAssignSettings() {
@@ -442,11 +872,245 @@ function saveAssignSettings() {
     DATA.addAuditLog('UPDATE_ASSIGNMENT_CONFIG', `Cập nhật cấu hình phân bổ: ${method}`, AUTH.getCurrentUser().id);
 }
 
-function testAssignRule() {
-    const testCustomer = { id: 999, name: 'Khách hàng Test', email: 'test@example.com' };
-    const emp = autoAssignCustomer(testCustomer);
-    if (emp) alert(`✓ Test thành công!\nKhách hàng sẽ được phân cho: ${emp.name}`);
-    else alert('⚠ Không có nhân viên nào khả dụng!');
+async function testAssignRule() {
+    const method = document.getElementById('assignMethod')?.value || 'round_robin';
+
+    if (method === 'round_robin') {
+        await assignByRoundRobin();
+        return;
+    }
+
+    if (method === 'manual') {
+        await assignManually();
+        return;
+    }
+
+    if (method === 'ratio') {
+        await assignByRatio();
+        return;
+    }
+}
+
+function renderAssignRatioInputs() {
+    const employees = DATA.assignmentEmployees || [];
+
+    if (!employees.length) {
+        return `<div style="grid-column:1/-1;color:#94a3b8;">Chưa có dữ liệu nhân viên</div>`;
+    }
+
+    const defaultRatio = Math.floor(100 / employees.length);
+    let remaining = 100;
+
+    return employees.map((emp, index) => {
+        const value = index === employees.length - 1 ? remaining : defaultRatio;
+        remaining -= value;
+
+        return `
+            <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:15px;">
+                <div style="font-weight:700;margin-bottom:5px;">${emp.name}</div>
+                <div style="font-size:12px;color:#64748b;margin-bottom:10px;">${emp.role}</div>
+                <label style="font-size:13px;font-weight:600;">Tỷ lệ (%)</label>
+                <input 
+                    type="number" 
+                    min="0" 
+                    max="100" 
+                    class="assign-ratio-input"
+                    data-employee-id="${emp.id}"
+                    value="${value}"
+                    style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:5px;margin-top:5px;"
+                >
+            </div>
+        `;
+    }).join('');
+}
+
+function renderUnassignedCustomerOptions() {
+    const customers = DATA.customers.filter(c =>
+        !c.deleted &&
+        !c.assignedTo &&
+        !c.maNguoiPhuTrach
+    );
+
+    if (!customers.length) {
+        return `<option value="">Không có khách hàng chưa phân bổ</option>`;
+    }
+
+    return customers.map(c =>
+        `<option value="${c.id}">${c.name} - ${c.email}</option>`
+    ).join('');
+}
+
+function renderEmployeeOptions() {
+    const employees = DATA.assignmentEmployees || [];
+
+    if (!employees.length) {
+        return `<option value="">Không có nhân viên</option>`;
+    }
+
+    return employees.map(emp =>
+        `<option value="${emp.id}">${emp.name} - ${emp.role}</option>`
+    ).join('');
+}
+
+function getFirstUnassignedCustomer() {
+    return DATA.customers.find(c =>
+        !c.deleted &&
+        !c.assignedTo &&
+        !c.maNguoiPhuTrach
+    );
+}
+
+async function assignByRoundRobin() {
+    const customer = getFirstUnassignedCustomer();
+
+    if (!customer) {
+        alert('Tất cả khách hàng đã được phân bổ.');
+        return;
+    }
+
+    if (!confirm(`Bạn muốn phân bổ tự động khách hàng "${customer.name}" theo xoay vòng?`)) {
+        return;
+    }
+
+    try {
+        await API_SERVICES.khachHang.assign(customer.id, {
+            maNhanVienMoi: null,
+            phuongPhap: 'round_robin'
+        });
+
+        alert(`✓ Đã phân bổ tự động khách hàng "${customer.name}" thành công.`);
+        await loadCustomers();
+    } catch (error) {
+        console.error('Lỗi phân bổ xoay vòng:', error);
+        alert('Phân bổ xoay vòng thất bại.');
+    }
+}
+
+async function assignManually() {
+    const customerId = parseInt(document.getElementById('manualCustomerSelect')?.value);
+    const employeeId = parseInt(document.getElementById('manualEmployeeSelect')?.value);
+
+    if (!customerId) {
+        alert('Vui lòng chọn khách hàng cần phân bổ.');
+        return;
+    }
+
+    if (!employeeId) {
+        alert('Vui lòng chọn nhân viên phụ trách.');
+        return;
+    }
+
+    const customer = DATA.customers.find(c => c.id === customerId);
+    const employee = (DATA.assignmentEmployees || []).find(e => e.id === employeeId);
+
+    if (!confirm(`Phân bổ "${customer?.name || 'khách hàng'}" cho "${employee?.name || 'nhân viên'}"?`)) {
+        return;
+    }
+
+    try {
+        await API_SERVICES.khachHang.assign(customerId, {
+            maNhanVienMoi: employeeId,
+            phuongPhap: 'manual'
+        });
+
+        alert('✓ Phân bổ thủ công thành công.');
+        await loadCustomers();
+    } catch (error) {
+        console.error('Lỗi phân bổ thủ công:', error);
+        alert('Phân bổ thủ công thất bại.');
+    }
+}
+
+async function assignByRatio() {
+    const customer = getFirstUnassignedCustomer();
+
+    if (!customer) {
+        alert('Tất cả khách hàng đã được phân bổ.');
+        return;
+    }
+
+    const selectedEmployee = chooseEmployeeByRatio();
+
+    if (!selectedEmployee) {
+        alert('Không chọn được nhân viên theo tỷ lệ.');
+        return;
+    }
+
+    if (!confirm(`Phân bổ "${customer.name}" cho "${selectedEmployee.name}" theo tỷ lệ?`)) {
+        return;
+    }
+
+    try {
+        await API_SERVICES.khachHang.assign(customer.id, {
+            maNhanVienMoi: selectedEmployee.id,
+            phuongPhap: 'ratio'
+        });
+
+        alert(`✓ Đã phân bổ "${customer.name}" cho "${selectedEmployee.name}" theo tỷ lệ.`);
+        await loadCustomers();
+    } catch (error) {
+        console.error('Lỗi phân bổ theo tỷ lệ:', error);
+        alert('Phân bổ theo tỷ lệ thất bại.');
+    }
+}
+
+function chooseEmployeeByRatio() {
+    const employees = DATA.assignmentEmployees || [];
+    const inputs = Array.from(document.querySelectorAll('.assign-ratio-input'));
+
+    if (!employees.length || !inputs.length) {
+        return null;
+    }
+
+    const ratios = inputs.map(input => ({
+        employeeId: parseInt(input.dataset.employeeId),
+        ratio: parseInt(input.value) || 0
+    }));
+
+    const totalRatio = ratios.reduce((sum, item) => sum + item.ratio, 0);
+
+    if (totalRatio !== 100) {
+        alert('Tổng tỷ lệ phải bằng 100%.');
+        return null;
+    }
+
+    const totalAssigned = employees.reduce((sum, emp) => sum + (emp.assignedCount || 0), 0);
+    const nextTotal = totalAssigned + 1;
+
+    let selected = null;
+    let maxGap = -Infinity;
+
+    for (const item of ratios) {
+        const emp = employees.find(e => Number(e.id) === Number(item.employeeId));
+        if (!emp || item.ratio <= 0) continue;
+
+        const expectedCount = nextTotal * item.ratio / 100;
+        const currentCount = emp.assignedCount || 0;
+        const gap = expectedCount - currentCount;
+
+        if (gap > maxGap) {
+            maxGap = gap;
+            selected = emp;
+        }
+    }
+
+    return selected;
+}
+
+function getAssignmentMethodLabel(method) {
+    if (method === 'round_robin') return 'Xoay vòng';
+    if (method === 'ratio') return 'Theo tỷ lệ';
+    if (method === 'manual') return 'Thủ công';
+    if (method === 'old_data') return 'Dữ liệu cũ';
+    return 'Đã phân bổ';
+}
+
+function getAssignmentMethodClass(method) {
+    if (method === 'round_robin') return 'customer';
+    if (method === 'ratio') return 'prospect';
+    if (method === 'manual') return 'lead';
+    if (method === 'old_data') return 'suspect';
+    return 'suspect';
 }
 
 function autoAssignCustomer(customer) {
@@ -534,4 +1198,284 @@ function confirmAssignCustomers(campaignId) {
     alert(`✓ Đã gán ${ids.length} khách hàng cho chiến dịch "${campaign.name}"`);
     DATA.addAuditLog('ASSIGN_CUSTOMERS_TO_CAMPAIGN', `Gán ${ids.length} KH cho ${campaign.name}`, AUTH.getCurrentUser().id);
     closeModal('assignCustomersModal');
+}
+// ============================================
+// BACKEND DATA MAPPING - GIỮ NGUYÊN GIAO DIỆN CŨ
+// ============================================
+
+async function loadCustomersFromBackend() {
+    try {
+        if (typeof API_SERVICES === 'undefined' || !API_SERVICES.khachHang) {
+            console.warn('API_SERVICES.khachHang chưa sẵn sàng, dùng DATA.customers mock.');
+            return;
+        }
+
+        const response = await API_SERVICES.khachHang.list();
+
+        const apiData = Array.isArray(response?.data)
+            ? response.data
+            : Array.isArray(response)
+                ? response
+                : Array.isArray(response?.data?.content)
+                    ? response.data.content
+                    : [];
+
+        if (!apiData.length) {
+            console.warn('Backend không trả về khách hàng hoặc danh sách rỗng.');
+            DATA.customers = [];
+            return;
+        }
+
+        DATA.customers = apiData.map(mapKhachHangBackendToCustomerUI);
+
+        console.log('Đã tải khách hàng từ backend:', DATA.customers);
+    } catch (error) {
+        console.error('Lỗi lấy khách hàng từ backend:', error);
+        alert('Không lấy được dữ liệu khách hàng từ backend. Kiểm tra token đăng nhập hoặc API /khach-hang.');
+    }
+}
+
+function mapKhachHangBackendToCustomerUI(kh) {
+    return {
+        id: kh.maKhachHang,
+        name: kh.hoTen || '',
+        email: kh.email || '',
+        phone: kh.soDienThoai || '',
+        company: kh.congTy || '',
+        status: convertTrangThaiKhachToUIStatus(kh.trangThaiKhach),
+        source: kh.tenNguonKH || kh.nguonKhachHang || '',
+        industry: kh.tenNganhNghe || kh.nganhNghe || '',
+        score: kh.diemTiemNang || 0,
+
+        assignedTo: kh.maNguoiPhuTrach || null,
+        assignedToName: kh.tenNguoiPhuTrach || '',
+        maNguoiPhuTrach: kh.maNguoiPhuTrach || null,
+        tenNguoiPhuTrach: kh.tenNguoiPhuTrach || '',
+
+        trialStartDate: kh.ngayBatDauDungThu || null,
+        trialDays: kh.soNgayDungThu || 0,
+        createdDate: kh.ngayTao ? String(kh.ngayTao).substring(0, 10) : '',
+        updatedDate: kh.ngayCapNhat ? String(kh.ngayCapNhat).substring(0, 10) : '',
+        lastInteraction: '',
+        deleted: kh.daXoa === true || kh.deleted === true
+    };
+}
+
+function buildAssignmentHistoryFromBackendCustomers() {
+    const employeeIds = new Set(
+        (DATA.assignmentEmployees || []).map(emp => Number(emp.id))
+    );
+
+    const assignedCustomers = DATA.customers
+        .filter(c =>
+            !c.deleted &&
+            (c.assignedTo || c.maNguoiPhuTrach) &&
+            employeeIds.has(Number(c.assignedTo || c.maNguoiPhuTrach))
+        )
+        .map(c => ({
+            id: c.id,
+            customerId: c.id,
+            customerName: c.name,
+            employeeId: c.assignedTo || c.maNguoiPhuTrach,
+            employeeName: c.assignedToName || c.tenNguoiPhuTrach || 'Chưa rõ nhân viên',
+            method: 'round_robin',
+            date: c.updatedDate || c.createdDate || ''
+        }))
+        .sort((a, b) => String(b.date).localeCompare(String(a.date)));
+
+    DATA.assignmentHistory = assignedCustomers;
+}
+
+async function loadAssignmentHistoryFromBackend() {
+    try {
+        if (typeof API_SERVICES === 'undefined' || !API_SERVICES.khachHang || !API_SERVICES.khachHang.assignmentHistory) {
+            console.warn('API lịch sử phân bổ chưa sẵn sàng. Tạm dùng lịch sử build từ khách hàng.');
+            buildAssignmentHistoryFromBackendCustomers();
+            return;
+        }
+
+        const response = await API_SERVICES.khachHang.assignmentHistory();
+
+        const apiData = Array.isArray(response?.data)
+            ? response.data
+            : Array.isArray(response)
+                ? response
+                : [];
+
+        DATA.assignmentHistory = apiData.map(mapAssignmentHistoryBackendToUI);
+
+        console.log('Đã tải lịch sử phân bổ từ backend:', DATA.assignmentHistory);
+    } catch (error) {
+        console.error('Lỗi lấy lịch sử phân bổ từ backend:', error);
+
+        // Dự phòng nếu API lỗi
+        buildAssignmentHistoryFromBackendCustomers();
+    }
+}
+
+function mapAssignmentHistoryBackendToUI(item) {
+    return {
+        id: item.maLichSuPhanBo,
+        customerId: item.maKhachHang,
+        customerName: item.tenKhachHang || item.hoTenKhachHang || '',
+        employeeId: item.maNhanVien,
+        employeeName: item.tenNhanVien || item.hoTenNhanVien || '',
+        method: item.phuongPhap || 'round_robin',
+        date: item.ngayPhanBo
+            ? String(item.ngayPhanBo).substring(0, 10)
+            : ''
+    };
+}
+
+async function loadEmployeesFromBackend() {
+    try {
+        if (typeof API_SERVICES === 'undefined' || !API_SERVICES.nhanVien) {
+            console.warn('API_SERVICES.nhanVien chưa sẵn sàng.');
+            DATA.assignmentEmployees = [];
+            return;
+        }
+
+        const response = await API_SERVICES.nhanVien.list();
+
+        const apiData = Array.isArray(response?.data)
+            ? response.data
+            : Array.isArray(response)
+                ? response
+                : Array.isArray(response?.data?.content)
+                    ? response.data.content
+                    : [];
+
+        DATA.assignmentEmployees = apiData.map(mapNhanVienBackendToAssignmentUI);
+
+        console.log('Đã tải nhân viên từ backend:', DATA.assignmentEmployees);
+    } catch (error) {
+        console.error('Lỗi lấy nhân viên từ backend:', error);
+        DATA.assignmentEmployees = [];
+    }
+}
+
+function mapNhanVienBackendToAssignmentUI(nv) {
+    return {
+        id: nv.maNhanVien,
+        name: nv.hoTen || '',
+        email: nv.email || '',
+        phone: nv.soDienThoai || '',
+        role: nv.chucVu || '',
+        avatar: nv.anhDaiDien || '',
+        status: nv.trangThaiTaiKhoan || '',
+        online: removeVietnameseAccentForMap(nv.trangThaiTaiKhoan || '').includes('hoat dong'),
+        assignedCount: 0
+    };
+}
+
+function buildAssignmentEmployeeStats() {
+    const employees = DATA.assignmentEmployees || [];
+
+    employees.forEach(emp => {
+        emp.assignedCount = DATA.customers.filter(c =>
+            !c.deleted &&
+            Number(c.assignedTo || c.maNguoiPhuTrach) === Number(emp.id)
+        ).length;
+    });
+
+    DATA.assignmentEmployees = employees;
+}
+
+function renderAssignmentEmployeeCards() {
+    const employees = DATA.assignmentEmployees || [];
+
+    if (!employees.length) {
+        return `
+            <div style="grid-column:1/-1;color:#94a3b8;text-align:center;padding:20px;">
+                Chưa có dữ liệu nhân viên
+            </div>
+        `;
+    }
+
+    return employees.map(emp => `
+        <div style="
+            background:#f8fafc;
+            border:1px solid #e2e8f0;
+            border-radius:8px;
+            padding:15px;
+            display:flex;
+            align-items:center;
+            justify-content:space-between;
+            gap:12px;
+        ">
+            <div style="display:flex;align-items:center;gap:12px;">
+                <div style="
+                    width:38px;
+                    height:38px;
+                    border-radius:50%;
+                    background:#0f172a;
+                    color:white;
+                    display:flex;
+                    align-items:center;
+                    justify-content:center;
+                    font-weight:700;
+                ">
+                    ${getEmployeeInitials(emp.name)}
+                </div>
+
+                <div>
+                    <div style="font-weight:700;color:#0f172a;">${emp.name}</div>
+                    <div style="font-size:12px;color:#64748b;">${emp.role}</div>
+                    <div style="font-size:12px;color:${emp.online ? '#16a34a' : '#94a3b8'};">
+                        ● ${emp.online ? 'Online' : 'Không hoạt động'}
+                    </div>
+                </div>
+            </div>
+
+            <div style="text-align:right;">
+                <div style="font-size:20px;font-weight:700;color:#0f172a;">${emp.assignedCount}</div>
+                <div style="font-size:12px;color:#64748b;">khách</div>
+            </div>
+        </div>
+    `).join('');
+}
+
+function getEmployeeInitials(name) {
+    const words = String(name || '').trim().split(/\s+/);
+    if (!words.length || !words[0]) return '?';
+
+    if (words.length === 1) {
+        return words[0].charAt(0).toUpperCase();
+    }
+
+    return (
+        words[words.length - 2].charAt(0) +
+        words[words.length - 1].charAt(0)
+    ).toUpperCase();
+}
+
+function convertTrangThaiKhachToUIStatus(trangThaiKhach) {
+    if (!trangThaiKhach) return 'suspect';
+
+    const value = removeVietnameseAccent(String(trangThaiKhach)).toLowerCase();
+
+    if (value.includes('truy cap')) return 'suspect';
+    if (value.includes('tiem nang')) return 'lead';
+    if (value.includes('trien vong')) return 'prospect';
+    if (value.includes('chinh thuc')) return 'customer';
+    if (value.includes('trung thanh')) return 'evangelist';
+
+    return 'suspect';
+}
+
+function removeVietnameseAccent(str) {
+    return str
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/đ/g, 'd')
+        .replace(/Đ/g, 'D');
+}
+function initHeaderCustomerSearch() {
+    const headerSearch = document.getElementById('searchInput');
+
+    if (!headerSearch) return;
+
+    headerSearch.oninput = function () {
+        applyCustomerFilter();
+    };
 }
