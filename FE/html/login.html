@@ -414,10 +414,14 @@
             errorMsg.style.display = 'none';
 
             let result = await AUTH.loginApi(username, password);
+            const apiErrorMessage = result.message;
 
             // Fallback cho tài khoản demo mock cũ nếu BE chưa có user tương ứng.
             if (!result.success) {
                 result = AUTH.login(username, password);
+                if (!result.success && apiErrorMessage) {
+                    result.message = apiErrorMessage;
+                }
             }
 
             if (result.success) {

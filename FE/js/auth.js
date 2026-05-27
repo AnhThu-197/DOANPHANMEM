@@ -4,7 +4,10 @@ const AUTH = {
     users: [
         { id: 1, username: 'nhanvien', password: '123', name: 'Trần Minh Chiến', role: 'employee', email: 'chien@company.com', phone: '0987654321', avatar: 'TC', department: 'Marketing', position: 'Nhân viên marketing', joinDate: '15/06/2023', manager: 'Nguyễn Hoàng Anh Thư', authSource: 'mock' },
         { id: 2, username: 'truongphong', password: '123', name: 'Nguyễn Hoàng Anh Thư', role: 'manager', email: 'manager@company.com', phone: '0912345678', avatar: 'NB', department: 'Marketing', position: 'Trưởng phòng', joinDate: '10/01/2022', manager: 'Admin System', authSource: 'mock' },
-        { id: 3, username: 'admin', password: '123', name: 'Admin System', role: 'admin', email: 'admin@company.com', phone: '0901234567', avatar: 'AS', department: 'IT', position: 'Quản trị viên', joinDate: '01/01/2021', manager: '', authSource: 'mock' }
+        { id: 3, username: 'admin', password: '123', name: 'Admin System', role: 'admin', email: 'admin@company.com', phone: '0901234567', avatar: 'AS', department: 'IT', position: 'Quản trị viên', joinDate: '01/01/2021', manager: '', authSource: 'mock' },
+        { id: 4, username: 'nv01@crm.vn', password: 'nv01123', name: 'Nhan vien Marketing', role: 'employee', email: 'nv01@crm.vn', phone: '0987654321', avatar: 'NV', department: 'Marketing', position: 'Nhan vien Marketing', joinDate: '15/06/2023', manager: 'Truong phong Marketing', authSource: 'mock' },
+        { id: 5, username: 'anhthu@gmail.com', password: 'tp123', name: 'Truong phong Marketing', role: 'manager', email: 'anhthu@gmail.com', phone: '0912345678', avatar: 'TP', department: 'Marketing', position: 'Truong phong Marketing', joinDate: '10/01/2022', manager: 'Admin System', authSource: 'mock' },
+        { id: 6, username: 'admin@gmail.com', password: 'admin123', name: 'Admin System', role: 'admin', email: 'admin@gmail.com', phone: '0901234567', avatar: 'AS', department: 'IT', position: 'Quan tri vien', joinDate: '01/01/2021', manager: '', authSource: 'mock' }
     ],
 
     login(username, password) {
