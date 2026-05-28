@@ -90,6 +90,8 @@ async function loadCustomers() {
         }
     }
 
+
+
     const roleRaw = removeVietnameseAccentForMap(
         user?.role || user?.vaiTro || user?.chucVu || ''
     );
@@ -437,6 +439,8 @@ async function saveCustomer(e) {
             parseInt(document.getElementById('customerTrialDays').value) || 0
     };
 
+
+
     console.log('Payload gửi lên backend:', payload);
 
     try {
@@ -457,7 +461,6 @@ async function saveCustomer(e) {
         alert('Lưu khách hàng thất bại. Kiểm tra F12 → Network → POST/PUT /khach-hang.');
     }
 }
-
 // Chuyển trạng thái trên giao diện sang trạng thái trong database/backend
 function mapUIStatusToBackend(status) {
     const value = removeVietnameseAccentForMap(status);
