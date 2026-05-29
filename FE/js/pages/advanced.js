@@ -308,6 +308,55 @@ function loadSmartReminders() {
     const content = document.getElementById('mainContent');
     if (!content) return;
 
+    const isApiSession = AUTH.getCurrentUser()?.authSource === 'api';
+
+    if (isApiSession) {
+        // Load from API
+        content.innerHTML = `
+            <div class="page-header">
+                <div>
+                    <h1>Nhắc nhở thông minh</h1>
+                    <p>Theo dõi lịch hẹn và trạng thái chăm sóc.</p>
+                </div>
+                <button class="btn btn-primary" onclick="openAppointmentModal()"><i class="fas fa-plus"></i> Tạo lịch hẹn</button>
+            </div>
+            <div style="text-align: center; padding: 40px;">
+                <i class="fas fa-spinner fa-spin" style="font-size: 24px; color: #0284c7;"></i>
+                <p style="margin-top: 10px; color: #64748b;">Đang tải dữ liệu...</p>
+            </div>
+        `;
+
+        API_SERVICES.nhacNho.cuaToi()
+            .then(response => {
+                const appointments = response.data || response || [];
+                renderAppointmentsTable(appointments, isApiSession);
+            })
+            .catch(error => {
+                console.error('Error loading appointments:', error);
+                content.innerHTML = `
+                    <div class="page-header">
+                        <div>
+                            <h1>Nhắc nhở thông minh</h1>
+                            <p>Theo dõi lịch hẹn và trạng thái chăm sóc.</p>
+                        </div>
+                        <button class="btn btn-primary" onclick="openAppointmentModal()"><i class="fas fa-plus"></i> Tạo lịch hẹn</button>
+                    </div>
+                    <div style="text-align: center; padding: 40px;">
+                        <i class="fas fa-exclamation-triangle" style="font-size: 24px; color: #ef4444;"></i>
+                        <p style="margin-top: 10px; color: #64748b;">Không thể tải dữ liệu: ${error.message || 'Lỗi không xác định'}</p>
+                    </div>
+                `;
+            });
+    } else {
+        // Load from local DATA
+        renderAppointmentsTable(DATA.appointments, isApiSession);
+    }
+}
+
+function renderAppointmentsTable(appointments, isApiSession) {
+    const content = document.getElementById('mainContent');
+    if (!content) return;
+
     content.innerHTML = `
         <div class="page-header">
             <div>
@@ -320,81 +369,345 @@ function loadSmartReminders() {
             <table class="data-table">
                 <thead><tr><th>Khách hàng</th><th>Tiêu đề</th><th>Loại</th><th>Thời gian</th><th>Trạng thái</th><th>Thao tác</th></tr></thead>
                 <tbody>
-                    ${DATA.appointments.map(item => `
-                        <tr>
-                            <td>${item.customerName}</td>
-                            <td><strong>${item.title}</strong></td>
-                            <td>${getInteractionTypeLabel(item.type)}</td>
-                            <td>${formatDate(item.date)} ${item.time || ''}</td>
-                            <td>${item.status === 'completed' ? 'Hoàn thành' : 'Đã lên lịch'}</td>
-                            <td>
-                                <button class="btn-view" onclick="viewAppointment(${item.id})">Xem</button>
-                                <button class="btn-edit" onclick="completeAppointment(${item.id})">Hoàn thành</button>
-                                <button class="btn-delete" onclick="deleteAppointment(${item.id})">Xóa</button>
-                            </td>
-                        </tr>
-                    `).join('')}
+                    ${appointments.length > 0 ? appointments.map(item => {
+                        // Map API response fields
+                        const customerName = item.khachHang?.hoTen || item.tenKhachHang || item.customerName || 'N/A';
+                        const title = item.tieuDe || item.title || '';
+                        const type = item.loaiNhacNho || item.loaiTuongTac || item.type || 'Gọi điện';
+                        const dateTime = item.thoiGianNhac || item.thoiGianHen || item.date || '';
+                        const status = item.trangThaiNhacNho || item.trangThai || item.status || 'Chờ xử lý';
+                        const id = item.maNhacNho || item.id;
+                        
+                        // Format datetime
+                        let displayDateTime = '';
+                        if (dateTime) {
+                            if (dateTime.includes('T')) {
+                                // ISO format from API
+                                const dt = new Date(dateTime);
+                                displayDateTime = `${dt.toLocaleDateString('vi-VN')} ${dt.toLocaleTimeString('vi-VN', {hour: '2-digit', minute: '2-digit'})}`;
+                            } else {
+                                displayDateTime = formatDate(dateTime) + (item.time ? ' ' + item.time : '');
+                            }
+                        }
+                        
+                        const isCompleted = status === 'Đã hoàn thành' || status === 'completed' || status === 'hoan_thanh';
+                        
+                        return `
+                            <tr>
+                                <td>${customerName}</td>
+                                <td><strong>${title}</strong></td>
+                                <td>${type}</td>
+                                <td>${displayDateTime}</td>
+                                <td>${isCompleted ? '<span style="color: #10b981;">Hoàn thành</span>' : '<span style="color: #f59e0b;">Chờ xử lý</span>'}</td>
+                                <td>
+                                    <button class="btn-view" onclick="viewAppointment(${id})">Xem</button>
+                                    ${!isCompleted ? `<button class="btn-edit" onclick="completeAppointment(${id})">Hoàn thành</button>` : ''}
+                                    <button class="btn-delete" onclick="deleteAppointment(${id})">Xóa</button>
+                                </td>
+                            </tr>
+                        `;
+                    }).join('') : '<tr><td colspan="6" style="text-align:center; padding:30px; color:#64748b;">Chưa có lịch hẹn nào.</td></tr>'}
                 </tbody>
             </table>
         </div>
     `;
 }
 
-function openAppointmentModal() {
-    const title = prompt('Tiêu đề lịch hẹn:');
-    if (!title) return;
-    const customer = DATA.customers.find(item => !item.deleted);
-    DATA.appointments.push({
-        id: Math.max(0, ...DATA.appointments.map(item => Number(item.id) || 0)) + 1,
-        customerId: customer?.id,
-        customerName: customer?.name || '',
-        title,
-        type: 'call',
-        date: new Date().toISOString().split('T')[0],
-        time: '09:00',
-        reminderBefore: 30,
-        status: 'scheduled'
-    });
-    loadSmartReminders();
+async function openAppointmentModal(appointmentId = null) {
+    const isApiSession = AUTH.getCurrentUser()?.authSource === 'api';
+    let appointment = null;
+    
+    if (appointmentId) {
+        // Edit mode - find appointment
+        if (isApiSession) {
+            // For API session, we need to find from loaded data
+            // Since we don't have a detail endpoint, we'll use the data from the table
+            alert('Chức năng sửa lịch hẹn đang được phát triển.');
+            return;
+        } else {
+            appointment = DATA.appointments.find(item => Number(item.id) === Number(appointmentId));
+        }
+    }
+
+    // Load customers for dropdown
+    let customers = [];
+    if (isApiSession) {
+        try {
+            const response = await API_SERVICES.khachHang.list();
+            customers = (response.data || response || []).filter(c => !c.daXoa);
+        } catch (error) {
+            console.error('Error loading customers:', error);
+            alert('Không thể tải danh sách khách hàng');
+            return;
+        }
+    } else {
+        customers = DATA.customers.filter(c => !c.deleted);
+    }
+
+    // Set modal title
+    document.getElementById('appointmentModalTitle').textContent = appointment ? 'Cập nhật Lịch hẹn' : 'Tạo Lịch hẹn';
+    
+    // Populate customer dropdown
+    const customerSelect = document.getElementById('appointmentCustomer');
+    customerSelect.innerHTML = '<option value="">-- Chọn khách hàng --</option>' + 
+        customers.map(c => `<option value="${c.id}" ${appointment && Number(c.id) === Number(appointment.customerId || appointment.khachHangId) ? 'selected' : ''}>${c.hoTen || c.name}</option>`).join('');
+    
+    // Populate form fields if editing
+    if (appointment) {
+        document.getElementById('appointmentTitle').value = appointment.tieuDe || appointment.title || '';
+        document.getElementById('appointmentType').value = appointment.loaiTuongTac || appointment.type || 'call';
+        document.getElementById('appointmentDate').value = appointment.thoiGianHen || appointment.date || '';
+        document.getElementById('appointmentTime').value = appointment.gioHen || appointment.time || '';
+        document.getElementById('appointmentReminderBefore').value = appointment.nhacTruoc || appointment.reminderBefore || 30;
+        document.getElementById('appointmentNotes').value = appointment.ghiChu || appointment.notes || '';
+    } else {
+        // Reset form for new appointment
+        document.getElementById('appointmentForm').reset();
+        document.getElementById('appointmentDate').value = new Date().toISOString().split('T')[0];
+        document.getElementById('appointmentTime').value = '09:00';
+        document.getElementById('appointmentReminderBefore').value = 30;
+    }
+    
+    // Store appointment ID if editing
+    document.getElementById('appointmentForm').setAttribute('data-appointment-id', appointmentId || '');
+    
+    openModal('appointmentModal');
 }
 
-function toggleReminderMessageType() {
-    return null;
-}
-
-function saveAppointment(e) {
+async function saveAppointment(e) {
     if (e) e.preventDefault();
-    loadSmartReminders();
+    
+    const isApiSession = AUTH.getCurrentUser()?.authSource === 'api';
+    const appointmentId = document.getElementById('appointmentForm').getAttribute('data-appointment-id');
+    
+    const customerId = Number(document.getElementById('appointmentCustomer').value);
+    const title = document.getElementById('appointmentTitle').value;
+    const type = document.getElementById('appointmentType').value;
+    const date = document.getElementById('appointmentDate').value;
+    const time = document.getElementById('appointmentTime').value;
+    const reminderBefore = Number(document.getElementById('appointmentReminderBefore').value || 30);
+    const notes = document.getElementById('appointmentNotes').value;
+    
+    if (!customerId) {
+        alert('Vui lòng chọn khách hàng');
+        return;
+    }
+    
+    if (isApiSession) {
+        // Call API to create appointment
+        // Combine date and time into LocalDateTime format
+        const dateTimeStr = `${date}T${time}:00`;
+        
+        const payload = {
+            khachHang: { maKhachHang: customerId },
+            tieuDe: title,
+            loaiNhacNho: type === 'call' ? 'Gọi điện' : 
+                        type === 'email' ? 'Email' : 
+                        type === 'meeting' ? 'Cuộc họp' : 
+                        type === 'message' ? 'Tin nhắn' : 'Gọi điện',
+            thoiGianNhac: dateTimeStr,
+            nhacTruocPhut: reminderBefore,
+            moTa: notes,
+            trangThaiNhacNho: 'Chờ xử lý'
+        };
+        
+        try {
+            await API_SERVICES.nhacNho.create(payload);
+            closeModal('appointmentModal');
+            loadSmartReminders();
+            alert('✓ Tạo lịch hẹn thành công!');
+        } catch (error) {
+            console.error('Error creating appointment:', error);
+            alert('⚠ Lỗi: ' + (error.response?.data?.message || error.message || 'Không thể tạo lịch hẹn'));
+        }
+    } else {
+        // Local data mode
+        const customer = DATA.customers.find(c => Number(c.id) === customerId);
+        
+        if (appointmentId) {
+            // Update existing
+            const appointment = DATA.appointments.find(item => Number(item.id) === Number(appointmentId));
+            if (appointment) {
+                appointment.customerId = customerId;
+                appointment.customerName = customer?.name || '';
+                appointment.title = title;
+                appointment.type = type;
+                appointment.date = date;
+                appointment.time = time;
+                appointment.reminderBefore = reminderBefore;
+                appointment.notes = notes;
+            }
+        } else {
+            // Create new
+            DATA.appointments.push({
+                id: Math.max(0, ...DATA.appointments.map(item => Number(item.id) || 0)) + 1,
+                customerId,
+                customerName: customer?.name || '',
+                title,
+                type,
+                date,
+                time,
+                reminderBefore,
+                notes,
+                status: 'scheduled'
+            });
+        }
+        
+        closeModal('appointmentModal');
+        loadSmartReminders();
+    }
 }
 
 function viewAppointment(appointmentId) {
-    const appointment = DATA.appointments.find(item => Number(item.id) === Number(appointmentId));
-    if (appointment) alert(`${appointment.title}\n${appointment.customerName}\n${formatDate(appointment.date)} ${appointment.time || ''}`);
+    const isApiSession = AUTH.getCurrentUser()?.authSource === 'api';
+    let appointment = null;
+    
+    // Find appointment from current page data
+    const rows = document.querySelectorAll('.data-table tbody tr');
+    rows.forEach(row => {
+        const viewBtn = row.querySelector(`button[onclick="viewAppointment(${appointmentId})"]`);
+        if (viewBtn) {
+            const cells = row.querySelectorAll('td');
+            appointment = {
+                id: appointmentId,
+                customerName: cells[0]?.textContent || '',
+                title: cells[1]?.textContent || '',
+                type: cells[2]?.textContent || '',
+                dateTime: cells[3]?.textContent || '',
+                status: cells[4]?.textContent.includes('Hoàn thành') ? 'completed' : 'scheduled'
+            };
+        }
+    });
+    
+    // Fallback to DATA if not found in table
+    if (!appointment && !isApiSession) {
+        const dataAppointment = DATA.appointments.find(item => Number(item.id) === Number(appointmentId));
+        if (dataAppointment) {
+            appointment = {
+                id: appointmentId,
+                customerName: dataAppointment.customerName || dataAppointment.tenKhachHang || '',
+                title: dataAppointment.title || dataAppointment.tieuDe || '',
+                type: dataAppointment.type || dataAppointment.loaiTuongTac || '',
+                date: dataAppointment.date || dataAppointment.thoiGianHen || '',
+                time: dataAppointment.time || dataAppointment.gioHen || '',
+                status: dataAppointment.status || dataAppointment.trangThai || 'scheduled',
+                reminderBefore: dataAppointment.reminderBefore || dataAppointment.nhacTruoc
+            };
+        }
+    }
+    
+    if (!appointment) return;
+
+    // Populate modal with appointment data
+    document.getElementById('appointmentDetailTitle').textContent = appointment.title || '';
+    document.getElementById('appointmentDetailCustomer').textContent = appointment.customerName || '';
+    
+    // Handle type label
+    let typeLabel = appointment.type;
+    if (appointment.type && !appointment.type.includes('điện') && !appointment.type.includes('Email')) {
+        typeLabel = getInteractionTypeLabel(appointment.type);
+    }
+    document.getElementById('appointmentDetailType').textContent = typeLabel || '';
+    
+    // Handle date and time
+    if (appointment.dateTime) {
+        const parts = appointment.dateTime.split(' ');
+        document.getElementById('appointmentDetailDate').textContent = parts[0] || '';
+        document.getElementById('appointmentDetailTime').textContent = parts.slice(1).join(' ') || 'Chưa xác định';
+    } else {
+        document.getElementById('appointmentDetailDate').textContent = formatDate(appointment.date) || '';
+        document.getElementById('appointmentDetailTime').textContent = appointment.time || 'Chưa xác định';
+    }
+    
+    // Status with color coding
+    const statusEl = document.getElementById('appointmentDetailStatus');
+    if (appointment.status === 'completed' || appointment.status === 'hoan_thanh' || appointment.status.includes('Hoàn thành')) {
+        statusEl.innerHTML = '<span style="color: #10b981; font-weight: 600;"><i class="fas fa-check-circle"></i> Hoàn thành</span>';
+        document.getElementById('appointmentDetailCompleteBtn').style.display = 'none';
+    } else {
+        statusEl.innerHTML = '<span style="color: #f59e0b; font-weight: 600;"><i class="fas fa-clock"></i> Đã lên lịch</span>';
+        document.getElementById('appointmentDetailCompleteBtn').style.display = 'inline-block';
+    }
+    
+    // Reminder info
+    if (appointment.reminderBefore) {
+        document.getElementById('appointmentDetailReminder').textContent = `${appointment.reminderBefore} phút trước`;
+        document.getElementById('appointmentDetailReminderSection').style.display = 'block';
+    } else {
+        document.getElementById('appointmentDetailReminderSection').style.display = 'none';
+    }
+    
+    // Store appointment ID for action buttons
+    document.getElementById('appointmentDetailCompleteBtn').setAttribute('data-appointment-id', appointmentId);
+    document.getElementById('appointmentDetailDeleteBtn').setAttribute('data-appointment-id', appointmentId);
+    
+    // Open modal
+    openModal('appointmentDetailModal');
+}
+
+function completeAppointmentFromModal() {
+    const appointmentId = document.getElementById('appointmentDetailCompleteBtn').getAttribute('data-appointment-id');
+    if (appointmentId) {
+        completeAppointment(appointmentId);
+        closeModal('appointmentDetailModal');
+    }
+}
+
+function deleteAppointmentFromModal() {
+    const appointmentId = document.getElementById('appointmentDetailDeleteBtn').getAttribute('data-appointment-id');
+    if (appointmentId && confirm('Bạn có chắc chắn muốn xóa lịch hẹn này?')) {
+        deleteAppointment(appointmentId);
+        closeModal('appointmentDetailModal');
+    }
 }
 
 function editAppointment(appointmentId) {
-    const appointment = DATA.appointments.find(item => Number(item.id) === Number(appointmentId));
-    if (!appointment) return;
-    const title = prompt('Tiêu đề:', appointment.title);
-    if (title) appointment.title = title;
-    loadSmartReminders();
+    openAppointmentModal(appointmentId);
 }
 
 function editAppointmentFromDetail() {
     loadSmartReminders();
 }
 
-function deleteAppointment(appointmentId) {
-    DATA.appointments = DATA.appointments.filter(item => Number(item.id) !== Number(appointmentId));
-    loadSmartReminders();
+async function deleteAppointment(appointmentId) {
+    if (!confirm('Bạn có chắc chắn muốn xóa lịch hẹn này?')) return;
+    
+    const isApiSession = AUTH.getCurrentUser()?.authSource === 'api';
+    
+    if (isApiSession) {
+        try {
+            await API_SERVICES.nhacNho.delete(appointmentId);
+            loadSmartReminders();
+            alert('✓ Xóa lịch hẹn thành công!');
+        } catch (error) {
+            console.error('Error deleting appointment:', error);
+            alert('⚠ Lỗi: ' + (error.response?.data?.message || error.message || 'Không thể xóa lịch hẹn'));
+        }
+    } else {
+        DATA.appointments = DATA.appointments.filter(item => Number(item.id) !== Number(appointmentId));
+        loadSmartReminders();
+    }
 }
 
-function completeAppointment(appointmentId) {
-    const appointment = DATA.appointments.find(item => Number(item.id) === Number(appointmentId));
-    if (!appointment) return;
-    appointment.status = 'completed';
-    appointment.completedDate = new Date().toISOString().split('T')[0];
-    loadSmartReminders();
+async function completeAppointment(appointmentId) {
+    const isApiSession = AUTH.getCurrentUser()?.authSource === 'api';
+    
+    if (isApiSession) {
+        try {
+            await API_SERVICES.nhacNho.complete(appointmentId);
+            loadSmartReminders();
+            alert('✓ Đã đánh dấu hoàn thành!');
+        } catch (error) {
+            console.error('Error completing appointment:', error);
+            alert('⚠ Lỗi: ' + (error.response?.data?.message || error.message || 'Không thể hoàn thành lịch hẹn'));
+        }
+    } else {
+        const appointment = DATA.appointments.find(item => Number(item.id) === Number(appointmentId));
+        if (!appointment) return;
+        appointment.status = 'completed';
+        appointment.completedDate = new Date().toISOString().split('T')[0];
+        loadSmartReminders();
+    }
 }
 
 function saveAppointmentResult(e) {

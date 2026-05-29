@@ -532,3 +532,153 @@
     </form>
   </div>
 </div>
+
+<!-- Modal chi tiết lịch hẹn / nhắc nhở -->
+<div id="appointmentDetailModal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2>Chi tiết Lịch hẹn</h2>
+      <button class="close-btn" onclick="closeModal('appointmentDetailModal')">
+        &times;
+      </button>
+    </div>
+    <div style="padding: 20px;">
+      <div class="form-group">
+        <label style="font-weight: 600; color: #64748b; font-size: 13px;">Tiêu đề</label>
+        <div id="appointmentDetailTitle" style="font-size: 16px; font-weight: 600; color: #1e293b; margin-top: 4px;"></div>
+      </div>
+      <div class="modal-grid-2" style="margin-top: 16px;">
+        <div class="form-group">
+          <label style="font-weight: 600; color: #64748b; font-size: 13px;">Khách hàng</label>
+          <div id="appointmentDetailCustomer" style="font-size: 15px; color: #1e293b; margin-top: 4px;"></div>
+        </div>
+        <div class="form-group">
+          <label style="font-weight: 600; color: #64748b; font-size: 13px;">Loại tương tác</label>
+          <div id="appointmentDetailType" style="font-size: 15px; color: #1e293b; margin-top: 4px;"></div>
+        </div>
+      </div>
+      <div class="modal-grid-2" style="margin-top: 16px;">
+        <div class="form-group">
+          <label style="font-weight: 600; color: #64748b; font-size: 13px;">Ngày</label>
+          <div id="appointmentDetailDate" style="font-size: 15px; color: #1e293b; margin-top: 4px;"></div>
+        </div>
+        <div class="form-group">
+          <label style="font-weight: 600; color: #64748b; font-size: 13px;">Giờ</label>
+          <div id="appointmentDetailTime" style="font-size: 15px; color: #1e293b; margin-top: 4px;"></div>
+        </div>
+      </div>
+      <div class="form-group" style="margin-top: 16px;">
+        <label style="font-weight: 600; color: #64748b; font-size: 13px;">Trạng thái</label>
+        <div id="appointmentDetailStatus" style="font-size: 15px; margin-top: 4px;"></div>
+      </div>
+      <div class="form-group" style="margin-top: 16px;" id="appointmentDetailReminderSection">
+        <label style="font-weight: 600; color: #64748b; font-size: 13px;">Nhắc trước</label>
+        <div id="appointmentDetailReminder" style="font-size: 15px; color: #1e293b; margin-top: 4px;"></div>
+      </div>
+    </div>
+    <div class="form-actions" style="padding: 15px 20px; border-top: 1px solid #e2e8f0;">
+      <button
+        type="button"
+        class="btn btn-secondary"
+        onclick="closeModal('appointmentDetailModal')"
+      >
+        Đóng
+      </button>
+      <button
+        type="button"
+        class="btn btn-primary"
+        id="appointmentDetailCompleteBtn"
+        onclick="completeAppointmentFromModal()"
+      >
+        <i class="fas fa-check"></i> Hoàn thành
+      </button>
+      <button
+        type="button"
+        class="btn btn-danger"
+        id="appointmentDetailDeleteBtn"
+        onclick="deleteAppointmentFromModal()"
+      >
+        <i class="fas fa-trash"></i> Xóa
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal tạo/sửa lịch hẹn -->
+<div id="appointmentModal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2 id="appointmentModalTitle">Tạo Lịch hẹn</h2>
+      <button class="close-btn" onclick="closeModal('appointmentModal')">
+        &times;
+      </button>
+    </div>
+    <form id="appointmentForm" onsubmit="saveAppointment(event)">
+      <div class="form-group">
+        <label for="appointmentCustomer">Khách hàng *</label>
+        <select id="appointmentCustomer" required>
+          <option value="">-- Chọn khách hàng --</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="appointmentTitle">Tiêu đề *</label>
+        <input
+          type="text"
+          id="appointmentTitle"
+          required
+          placeholder="VD: Gọi điện tư vấn sản phẩm"
+        />
+      </div>
+      <div class="form-group">
+        <label for="appointmentType">Loại tương tác *</label>
+        <select id="appointmentType" required>
+          <option value="call">Gọi điện</option>
+          <option value="email">Email</option>
+          <option value="meeting">Cuộc họp</option>
+          <option value="message">Tin nhắn</option>
+        </select>
+      </div>
+      <div class="modal-grid-2">
+        <div class="form-group">
+          <label for="appointmentDate">Ngày *</label>
+          <input type="date" id="appointmentDate" required />
+        </div>
+        <div class="form-group">
+          <label for="appointmentTime">Giờ *</label>
+          <input type="time" id="appointmentTime" required />
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="appointmentReminderBefore">Nhắc trước (phút)</label>
+        <input
+          type="number"
+          id="appointmentReminderBefore"
+          min="0"
+          value="30"
+          placeholder="30"
+        />
+        <small style="color: #94a3b8; display: block; margin-top: 5px"
+          >Hệ thống sẽ nhắc nhở trước thời gian hẹn</small
+        >
+      </div>
+      <div class="form-group">
+        <label for="appointmentNotes">Ghi chú</label>
+        <textarea
+          id="appointmentNotes"
+          rows="3"
+          placeholder="Ghi chú thêm về lịch hẹn..."
+        ></textarea>
+      </div>
+      <div class="form-actions">
+        <button
+          type="button"
+          class="btn btn-secondary"
+          onclick="closeModal('appointmentModal')"
+        >
+          Hủy
+        </button>
+        <button type="submit" class="btn btn-primary">Lưu</button>
+      </div>
+    </form>
+  </div>
+</div>
