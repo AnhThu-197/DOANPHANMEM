@@ -24,7 +24,7 @@ public class TepDinhKem {
     @Column(name = "duongDanLuuTru", nullable = false, length = 500)
     private String duongDanLuuTru;
 
-    @Column(name = "loaiTep", length = 20)
+    @Column(name = "loaiTep", length = 100)
     private String loaiTep;
 
     @Builder.Default

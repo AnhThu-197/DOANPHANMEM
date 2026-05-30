@@ -2,32 +2,67 @@
 // NOTIFICATIONS - Thông báo hệ thống
 // ============================================
 
+function parseDateLocal(dateStr) {
+    if (!dateStr) return new Date();
+    
+    // Handle standard ISO-like string YYYY-MM-DD HH:MM:SS or YYYY-MM-DDTHH:MM:SS
+    const match = dateStr.match(/(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2}):(\d{2})/);
+    if (match) {
+        return new Date(
+            parseInt(match[1], 10),
+            parseInt(match[2], 10) - 1,
+            parseInt(match[3], 10),
+            parseInt(match[4], 10),
+            parseInt(match[5], 10),
+            parseInt(match[6], 10)
+        );
+    }
+    
+    // Handle YYYY-MM-DD HH:MM
+    const matchShort = dateStr.match(/(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/);
+    if (matchShort) {
+        return new Date(
+            parseInt(matchShort[1], 10),
+            parseInt(matchShort[2], 10) - 1,
+            parseInt(matchShort[3], 10),
+            parseInt(matchShort[4], 10),
+            parseInt(matchShort[5], 10),
+            0
+        );
+    }
+    
+    // Fallback to standard parsing
+    return new Date(dateStr);
+}
+
+function filterNotifications(notifications) {
+    const now = new Date();
+    return notifications.filter(n => {
+        const type = (n.type || n.loaiThongBao || '').toLowerCase();
+        const message = n.message || n.noiDung || '';
+        
+        if (type === 'nhắc nhở' || type === 'lịch hẹn' || type === 'phân công' || type === 'phân bổ') {
+            // Extract datetime YYYY-MM-DD HH:MM:SS
+            const match = message.match(/(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})/);
+            if (match) {
+                const scheduledTime = parseDateLocal(match[1]);
+                if (scheduledTime > now) {
+                    return false; // Hide future notifications
+                }
+            }
+        }
+        return true;
+    });
+}
+
 function showNotifications() {
     openNotifications();
 }
 
 async function openNotifications() {
-    const user = AUTH.getCurrentUser();
+    // Cập nhật lại badge hiển thị và danh sách thông báo gộp mới nhất
+    await updateNotificationBadge();
     
-    // Nếu dùng API, fetch thông báo từ backend
-    if (user && user.authSource === 'api') {
-        try {
-            const res = await API_SERVICES.thongBao.list();
-            const rawNotifications = res.data ?? res ?? [];
-            DATA.notifications = rawNotifications.map(n => ({
-                id: n.maThongBao,
-                title: n.tieuDe || 'Thông báo hệ thống',
-                message: n.noiDung || '',
-                date: n.thoiGianTao ? new Date(n.thoiGianTao).toLocaleString('vi-VN') : '',
-                read: !!n.daDoc,
-                type: n.loaiThongBao || 'Hệ thống',
-                link: n.duongDanLienKet || ''
-            }));
-        } catch (err) {
-            console.error('Không thể tải thông báo từ API, dùng mock:', err);
-        }
-    }
-
     renderNotificationsList();
     
     // Hiển thị Modal
@@ -36,9 +71,6 @@ async function openNotifications() {
         modal.style.display = 'block';
         document.body.classList.add('modal-open');
     }
-    
-    // Cập nhật lại badge hiển thị
-    await updateNotificationBadge();
 }
 
 function renderNotificationsList() {
@@ -112,7 +144,13 @@ async function markAsRead(notificationId) {
     // Gọi API cập nhật trạng thái nếu dùng API
     if (user && user.authSource === 'api') {
         try {
-            await API_SERVICES.thongBao.markRead(notificationId);
+            if (typeof notificationId === 'string' && notificationId.startsWith('reminder-')) {
+                const actualReminderId = parseInt(notificationId.replace('reminder-', ''), 10);
+                window.READ_REMINDERS = window.READ_REMINDERS || new Set();
+                window.READ_REMINDERS.add(actualReminderId);
+            } else {
+                await API_SERVICES.thongBao.markRead(notificationId);
+            }
         } catch (err) {
             console.error('Không thể đánh dấu đọc thông báo:', err);
         }
@@ -213,8 +251,99 @@ async function updateNotificationBadge() {
 
     if (user && user.authSource === 'api') {
         try {
-            const res = await API_SERVICES.thongBao.unreadCount();
-            unreadCount = res.data?.soChuaDoc ?? res.soChuaDoc ?? 0;
+            // 1. Fetch system notifications
+            const res = await API_SERVICES.thongBao.list();
+            const rawNotifications = res.data ?? res ?? [];
+            const mapped = rawNotifications.map(n => ({
+                id: n.maThongBao,
+                title: n.tieuDe || 'Thông báo hệ thống',
+                message: n.noiDung || '',
+                date: n.thoiGianTao ? parseDateLocal(n.thoiGianTao).toLocaleString('vi-VN') : '',
+                read: !!n.daDoc,
+                type: n.loaiThongBao || 'Hệ thống',
+                link: n.duongDanLienKet || ''
+            }));
+            
+            const filtered = filterNotifications(mapped);
+            
+            // Trigger alerts for system notifications
+            const isFirstLoad = !window.ALERTED_NOTIFICATIONS;
+            window.ALERTED_NOTIFICATIONS = window.ALERTED_NOTIFICATIONS || new Set();
+            filtered.forEach(n => {
+                if (!n.read) {
+                    if (isFirstLoad) {
+                        window.ALERTED_NOTIFICATIONS.add(n.id);
+                    } else if (!window.ALERTED_NOTIFICATIONS.has(n.id)) {
+                        window.ALERTED_NOTIFICATIONS.add(n.id);
+                        alert(`⏰ [Nhắc nhở đến hạn]\n${n.title}\n${n.message}`);
+                    }
+                }
+            });
+
+            // 2. Fetch and merge smart reminders that are due
+            let dueRemindersMapped = [];
+            try {
+                const nhacNhoRes = await API_SERVICES.nhacNho.cuaToi();
+                const rawReminders = nhacNhoRes.data ?? nhacNhoRes ?? [];
+                const loggedInEmployeeId = user ? Number(user.employeeId) : null;
+                const pendingReminders = rawReminders.filter(item => {
+                    const assignedEmployeeId = item.nhanVien ? Number(item.nhanVien.maNhanVien || item.nhanVien.id) : null;
+                    return assignedEmployeeId === loggedInEmployeeId;
+                });
+                
+                const now = new Date();
+                const isFirstLoadReminders = !window.ALERTED_REMINDERS;
+                window.ALERTED_REMINDERS = window.ALERTED_REMINDERS || new Set();
+
+                if (isFirstLoadReminders) {
+                    // Tránh hiện cảnh báo dồn dập cho các nhắc nhở cũ khi mới tải trang.
+                    // Chỉ cho phép cảnh báo các nhắc nhở mới hoặc trong khoảng 2 phút đổ lại.
+                    pendingReminders.forEach(item => {
+                        const eventTime = parseDateLocal(item.thoiGianNhac);
+                        const nhacTruoc = Number(item.nhacTruocPhut || 0);
+                        const alertTime = new Date(eventTime.getTime() - nhacTruoc * 60 * 1000);
+                        if (alertTime <= now) {
+                            if (now - alertTime > 120000) {
+                                window.ALERTED_REMINDERS.add(item.maNhacNho);
+                            }
+                        }
+                    });
+                }
+
+                pendingReminders.forEach(item => {
+                    const eventTime = parseDateLocal(item.thoiGianNhac);
+                    const nhacTruoc = Number(item.nhacTruocPhut || 0);
+                    const alertTime = new Date(eventTime.getTime() - nhacTruoc * 60 * 1000);
+                    
+                    if (alertTime <= now) {
+                        const rId = `reminder-${item.maNhacNho}`;
+                        const isRead = window.READ_REMINDERS && window.READ_REMINDERS.has(item.maNhacNho);
+                        
+                        dueRemindersMapped.push({
+                            id: rId,
+                            title: `⏰ Lịch hẹn đến hạn: ${item.tieuDe}`,
+                            message: `${item.moTa || 'Không có mô tả'} (Khách hàng: ${item.khachHang?.hoTen || 'N/A'})`,
+                            date: eventTime.toLocaleString('vi-VN'),
+                            read: isRead,
+                            type: 'Nhắc nhở',
+                            link: '/smart-reminders',
+                            rawReminderId: item.maNhacNho
+                        });
+
+                        // Kích hoạt cảnh báo trực quan
+                        if (!window.ALERTED_REMINDERS.has(item.maNhacNho)) {
+                            window.ALERTED_REMINDERS.add(item.maNhacNho);
+                            alert(`⏰ [ĐẾN HẠN NHẮC NHỞ]\n\nTiêu đề: ${item.tieuDe}\nNội dung: ${item.moTa || 'Không có mô tả'}\nKhách hàng: ${item.khachHang?.hoTen || 'N/A'}\nThời gian: ${eventTime.toLocaleString('vi-VN')}`);
+                        }
+                    }
+                });
+            } catch (reminderErr) {
+                console.error('Lỗi khi lấy danh sách nhắc nhở thông minh:', reminderErr);
+            }
+
+            const combinedNotifications = [...filtered, ...dueRemindersMapped];
+            unreadCount = combinedNotifications.filter(n => !n.read).length;
+            DATA.notifications = combinedNotifications;
         } catch (err) {
             console.error('Lỗi khi lấy số thông báo chưa đọc từ API:', err);
             unreadCount = (DATA.notifications || []).filter(n => !n.read).length;
@@ -232,41 +361,17 @@ async function updateNotificationBadge() {
 
 // Tự động cập nhật thông báo mỗi 15 giây nếu người dùng đã đăng nhập
 document.addEventListener('DOMContentLoaded', () => {
-    // Đợi 2 giây sau khi tải trang để tránh quá tải lúc mới init, sau đó thực hiện poll
     setTimeout(() => {
         if (typeof AUTH !== 'undefined' && AUTH.isLoggedIn()) {
             updateNotificationBadge();
         }
         
-        // Thiết lập interval mỗi 15 giây
-        setInterval(() => {
+        setInterval(async () => {
             if (typeof AUTH !== 'undefined' && AUTH.isLoggedIn()) {
-                updateNotificationBadge();
-                // Nếu modal thông báo đang mở thì reload danh sách luôn
+                await updateNotificationBadge();
                 const modal = document.getElementById('notificationModal');
                 if (modal && modal.style.display === 'block') {
-                    // Gọi API không mở modal mới
-                    (async () => {
-                        const user = AUTH.getCurrentUser();
-                        if (user && user.authSource === 'api') {
-                            try {
-                                const res = await API_SERVICES.thongBao.list();
-                                const rawNotifications = res.data ?? res ?? [];
-                                DATA.notifications = rawNotifications.map(n => ({
-                                    id: n.maThongBao,
-                                    title: n.tieuDe || 'Thông báo hệ thống',
-                                    message: n.noiDung || '',
-                                    date: n.thoiGianTao ? new Date(n.thoiGianTao).toLocaleString('vi-VN') : '',
-                                    read: !!n.daDoc,
-                                    type: n.loaiThongBao || 'Hệ thống',
-                                    link: n.duongDanLienKet || ''
-                                }));
-                                renderNotificationsList();
-                            } catch (err) {
-                                console.error('Lỗi tự động tải thông báo:', err);
-                            }
-                        }
-                    })();
+                    renderNotificationsList();
                 }
             }
         }, 15000);

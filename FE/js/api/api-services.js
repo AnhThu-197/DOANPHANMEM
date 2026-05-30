@@ -55,6 +55,8 @@ const API_SERVICES = {
     restore: (id) => API_CLIENT.post(API_ENDPOINTS.khachHang.restore(id)),
     deletePermanently: (id) =>
       API_CLIENT.delete(API_ENDPOINTS.khachHang.deletePermanently(id)),
+    getTrial: (id) => API_CLIENT.get(API_ENDPOINTS.khachHang.getTrial(id)),
+    updateTrial: (id, payload) => API_CLIENT.put(API_ENDPOINTS.khachHang.updateTrial(id), payload),
   },
 
   chienDich: {
@@ -144,6 +146,15 @@ const API_SERVICES = {
     create: (payload) => API_CLIENT.post(API_ENDPOINTS.tuongTac.create, payload),
     update: (id, payload) => API_CLIENT.put(API_ENDPOINTS.tuongTac.update(id), payload),
     delete: (id) => API_CLIENT.delete(API_ENDPOINTS.tuongTac.delete(id)),
+    uploadFile: (id, file) => {
+      const formData = new FormData();
+      formData.append("file", file);
+      return API_CLIENT.request(API_ENDPOINTS.tuongTac.uploadFile(id), {
+        method: "POST",
+        body: formData,
+      });
+    },
+    deleteFile: (id, fileId) => API_CLIENT.delete(API_ENDPOINTS.tuongTac.deleteFile(id, fileId)),
   },
 
   automation: {
@@ -156,5 +167,27 @@ const API_SERVICES = {
     deactivate: (id) => API_CLIENT.post(API_ENDPOINTS.automation.deactivate(id), {}),
     getStatistics: () => API_CLIENT.get(API_ENDPOINTS.automation.statistics),
     getExecutionHistory: (id) => API_CLIENT.get(API_ENDPOINTS.automation.executionHistory(id)),
+  },
+
+  thongDiep: {
+    getTemplates: () => API_CLIENT.get(API_ENDPOINTS.thongDiep.templates),
+    createTemplate: (payload) => API_CLIENT.post(API_ENDPOINTS.thongDiep.templates, payload),
+    updateTemplate: (id, payload) => API_CLIENT.put(API_ENDPOINTS.thongDiep.templateDetail(id), payload),
+    deleteTemplate: (id) => API_CLIENT.delete(API_ENDPOINTS.thongDiep.templateDetail(id)),
+    getHistory: () => API_CLIENT.get(API_ENDPOINTS.thongDiep.history),
+    send: (payload) => API_CLIENT.post(API_ENDPOINTS.thongDiep.send, payload),
+  },
+
+  cauhinh: {
+    get: () => API_CLIENT.get(API_ENDPOINTS.cauhinh.get),
+    update: (payload) => API_CLIENT.put(API_ENDPOINTS.cauhinh.update, payload),
+    restore: (file) => {
+      const formData = new FormData();
+      formData.append("file", file);
+      return API_CLIENT.request(API_ENDPOINTS.cauhinh.restore, {
+        method: "POST",
+        body: formData,
+      });
+    },
   },
 };

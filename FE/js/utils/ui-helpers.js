@@ -32,22 +32,59 @@ function closeModal(modalId) {
     }
 }
 
-// Populate dropdown khách hàng
-function populateCustomerDropdown(selectId) {
+// Populate dropdown khách hàng (hỗ trợ API session)
+async function populateCustomerDropdown(selectId, selectedValue = null) {
     const select = document.getElementById(selectId);
     if (!select) return;
 
     select.innerHTML = '<option value="">-- Chọn khách hàng --</option>';
-    DATA.customers.filter(c => !c.deleted).forEach(customer => {
-        const option = document.createElement('option');
-        option.value = customer.id;
-        option.textContent = customer.name;
-        select.appendChild(option);
-    });
+    
+    const isApiSession = typeof AUTH !== 'undefined' && AUTH.getCurrentUser()?.authSource === 'api';
+    
+    if (isApiSession) {
+        try {
+            const response = await API_SERVICES.khachHang.list();
+            const customers = (response.data || response || []).filter(c => !c.daXoa);
+            
+            // Lưu trữ toàn cục để các trang có thể truy cập thông tin chi tiết khách hàng
+            window.CURRENT_CUSTOMERS = customers;
+            
+            customers.forEach(customer => {
+                const option = document.createElement('option');
+                const cid = customer.maKhachHang || customer.id;
+                option.value = String(cid);
+                option.textContent = customer.hoTen || customer.name;
+                if (selectedValue !== null && selectedValue !== undefined && Number(cid) === Number(selectedValue)) {
+                    option.selected = true;
+                }
+                select.appendChild(option);
+            });
+            
+            if (selectedValue !== null && selectedValue !== undefined) {
+                select.value = String(selectedValue);
+            }
+        } catch (error) {
+            console.error('Error populating customer dropdown:', error);
+        }
+    } else {
+        DATA.customers.filter(c => !c.deleted).forEach(customer => {
+            const option = document.createElement('option');
+            option.value = String(customer.id);
+            option.textContent = customer.name;
+            if (selectedValue !== null && selectedValue !== undefined && Number(customer.id) === Number(selectedValue)) {
+                option.selected = true;
+            }
+            select.appendChild(option);
+        });
+        
+        if (selectedValue !== null && selectedValue !== undefined) {
+            select.value = String(selectedValue);
+        }
+    }
 }
 
 // Populate dropdown nhân viên (hỗ trợ API session và giữ value được chọn)
-function loadEmployeeDropdown(selectId, includeEmpty = true, selectedValue = null) {
+async function loadEmployeeDropdown(selectId, includeEmpty = true, selectedValue = null) {
     const select = document.getElementById(selectId);
     if (!select) return;
 
@@ -59,12 +96,12 @@ function loadEmployeeDropdown(selectId, includeEmpty = true, selectedValue = nul
         const renderDropdownOptions = (employees) => {
             let html = includeEmpty ? '<option value="">-- Chọn nhân viên --</option>' : '';
             employees.forEach(emp => {
-                const isSelected = selectedValue !== null && Number(emp.id) === Number(selectedValue) ? 'selected' : '';
+                const isSelected = selectedValue !== null && selectedValue !== undefined && Number(emp.id) === Number(selectedValue) ? 'selected' : '';
                 html += `<option value="${emp.id}" ${isSelected}>${emp.name} (${emp.position})</option>`;
             });
             select.innerHTML = html;
-            if (selectedValue !== null) {
-                select.value = selectedValue;
+            if (selectedValue !== null && selectedValue !== undefined) {
+                select.value = String(selectedValue);
             }
         };
 
@@ -92,28 +129,27 @@ function loadEmployeeDropdown(selectId, includeEmpty = true, selectedValue = nul
                     });
             }
 
-            DATA.backendEmployeesPromise
-                .then(employees => {
-                    renderDropdownOptions(employees);
-                })
-                .catch(error => {
-                    console.error('Lỗi tải nhân viên cho dropdown:', error);
-                    select.innerHTML = includeEmpty ? '<option value="">-- Lỗi tải nhân viên --</option>' : '<option value="">Lỗi tải</option>';
-                    DATA.backendEmployeesPromise = null;
-                });
+            try {
+                const employees = await DATA.backendEmployeesPromise;
+                renderDropdownOptions(employees);
+            } catch (error) {
+                console.error('Lỗi tải nhân viên cho dropdown:', error);
+                select.innerHTML = includeEmpty ? '<option value="">-- Lỗi tải nhân viên --</option>' : '<option value="">Lỗi tải</option>';
+                DATA.backendEmployeesPromise = null;
+            }
         }
     } else {
         // Chế độ mock
         let html = includeEmpty ? '<option value="">-- Chọn nhân viên --</option>' : '';
         if (typeof AUTH !== 'undefined' && AUTH.users) {
             AUTH.users.forEach(user => {
-                const isSelected = selectedValue !== null && Number(user.id) === Number(selectedValue) ? 'selected' : '';
+                const isSelected = selectedValue !== null && selectedValue !== undefined && Number(user.id) === Number(selectedValue) ? 'selected' : '';
                 html += `<option value="${user.id}" ${isSelected}>${user.name} (${user.position || user.role})</option>`;
             });
         }
         select.innerHTML = html;
-        if (selectedValue !== null) {
-            select.value = selectedValue;
+        if (selectedValue !== null && selectedValue !== undefined) {
+            select.value = String(selectedValue);
         }
     }
 }
@@ -123,11 +159,14 @@ function populateTemplateDropdown(selectId) {
     const select = document.getElementById(selectId);
     if (!select) return;
 
+    const isApiSession = AUTH.getCurrentUser()?.authSource === 'api';
     select.innerHTML = '<option value="">-- Chọn mẫu --</option>';
-    DATA.messageTemplates.forEach(template => {
+    
+    const templates = isApiSession ? (window.CURRENT_TEMPLATES || []) : DATA.messageTemplates;
+    templates.forEach(template => {
         const option = document.createElement('option');
-        option.value = template.id;
-        option.textContent = `${template.name} (${template.type})`;
+        option.value = template.maMau || template.id;
+        option.textContent = `${template.tieuDe || template.name} (${template.loaiThongDiep || template.type})`;
         select.appendChild(option);
     });
 }
@@ -138,9 +177,18 @@ function updateFileName(input, displayId) {
     const display = document.getElementById(displayId);
 
     if (input.files && input.files.length > 0) {
-        const file     = input.files[0];
-        const fileSize = (file.size / 1024 / 1024).toFixed(2);
-        display.innerHTML = `<i class="fas fa-file-alt"></i> ${file.name} (${fileSize} MB)`;
+        if (input.files.length === 1) {
+            const file     = input.files[0];
+            const fileSize = (file.size / 1024 / 1024).toFixed(2);
+            display.innerHTML = `<i class="fas fa-file-alt"></i> ${file.name} (${fileSize} MB)`;
+        } else {
+            let totalSize = 0;
+            for (let i = 0; i < input.files.length; i++) {
+                totalSize += input.files[i].size;
+            }
+            const totalSizeMB = (totalSize / 1024 / 1024).toFixed(2);
+            display.innerHTML = `<i class="fas fa-copy"></i> Đã chọn ${input.files.length} tệp (${totalSizeMB} MB)`;
+        }
         if (label) label.classList.add('has-file');
     } else {
         display.textContent = 'Chọn file hoặc kéo thả vào đây';

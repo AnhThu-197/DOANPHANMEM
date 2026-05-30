@@ -40,7 +40,7 @@
                 <h3 style="margin-bottom: 15px;">Danh sách Tương tác</h3>
                 <table style="width: 100%; margin-bottom: 20px;">
                     <thead>
-                        <tr><th>Loại</th><th>Nội dung</th><th>Ngày</th><th>Ghi chú</th></tr>
+                        <tr><th>Loại</th><th>Nội dung</th><th>Ngày</th><th>Ghi chú</th><th>Hành động</th></tr>
                     </thead>
                     <tbody id="detailInteractionsTable"></tbody>
                 </table>
@@ -73,7 +73,7 @@
                         <div class="form-group">
                             <label for="detailInteractionFile">Đính kèm file</label>
                             <div class="file-upload-wrapper">
-                                <input type="file" id="detailInteractionFile" class="file-input" onchange="updateFileName(this, 'detailInteractionFileName')">
+                                <input type="file" id="detailInteractionFile" class="file-input" multiple onchange="updateFileName(this, 'detailInteractionFileName')">
                                 <label for="detailInteractionFile" class="file-upload-label">
                                     <i class="fas fa-cloud-upload-alt"></i>
                                     <span id="detailInteractionFileName">Chọn file hoặc kéo thả vào đây</span>
@@ -132,153 +132,6 @@
     </div>
 </div>
 
-<!-- Modal tạo/sửa lịch hẹn -->
-<div id="appointmentModal" class="modal">
-    <div class="modal-content" style="max-width: 700px;">
-        <div class="modal-header">
-            <h2 id="appointmentModalTitle">Tạo Lịch hẹn</h2>
-            <button class="close-btn" onclick="closeModal('appointmentModal')">&times;</button>
-        </div>
-        <form id="appointmentForm" onsubmit="saveAppointment(event)">
-            <div style="padding: 20px;">
-                <div class="modal-grid-2">
-                    <div class="form-group">
-                        <label for="appointmentCustomer">Khách hàng *</label>
-                        <select id="appointmentCustomer" required></select>
-                    </div>
-                    <div class="form-group">
-                        <label for="appointmentEmployee">Nhân viên được gán</label>
-                        <select id="appointmentEmployee">
-                            <option value="">-- Chọn nhân viên --</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label for="appointmentTitle">Tiêu đề *</label>
-                    <input type="text" id="appointmentTitle" placeholder="VD: Gọi điện tư vấn" required>
-                </div>
-                <div class="modal-grid-2">
-                    <div class="form-group">
-                        <label for="appointmentType">Loại lịch hẹn *</label>
-                        <select id="appointmentType" required onchange="toggleReminderMessageType()">
-                            <option value="call">Gọi điện</option>
-                            <option value="meeting">Cuộc họp trực tiếp</option>
-                            <option value="video">Họp trực tuyến</option>
-                            <option value="email">Gửi Email</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="appointmentResult">Kết quả</label>
-                        <select id="appointmentResult">
-                            <option value="">-- Chưa thực hiện --</option>
-                            <option value="Thành công">Thành công</option>
-                            <option value="Khách bận">Khách bận</option>
-                            <option value="Khách từ chối">Khách từ chối</option>
-                        </select>
-                    </div>
-                </div>
-                <div id="meetingLocationSection" style="display: none;">
-                    <div class="form-group">
-                        <label for="appointmentLocation">Địa điểm / Link họp *</label>
-                        <input type="text" id="appointmentLocation" placeholder="VD: Phòng họp A / https://meet.google.com/xxx">
-                    </div>
-                </div>
-                <div class="modal-grid-2">
-                    <div class="form-group">
-                        <label for="appointmentDate">Ngày *</label>
-                        <input type="date" id="appointmentDate" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="appointmentTime">Giờ *</label>
-                        <input type="time" id="appointmentTime" required>
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label for="appointmentReminder">Nhắc nhở trước (phút)</label>
-                    <select id="appointmentReminder">
-                        <option value="30">30 phút</option>
-                        <option value="60">1 giờ</option>
-                        <option value="1440">1 ngày</option>
-                    </select>
-                </div>
-                <div class="reminder-section">
-                    <h4>Nhắc nhở 2 chiều</h4>
-                    <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-                        <input type="checkbox" id="reminderEmployee" checked>
-                        <span>Nhắc nhở nhân viên</span>
-                    </label>
-                    <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
-                        <input type="checkbox" id="reminderCustomer" checked onchange="toggleReminderMessageType()">
-                        <span>Nhắc nhở khách hàng</span>
-                    </label>
-                    <div id="reminderMessageTypeSection" style="display: none; margin-top: 10px; padding-top: 10px; border-top: 1px solid #e2e8f0;">
-                        <label style="font-weight: 600; margin-bottom: 8px; display: block;">Loại thông điệp nhắc nhở:</label>
-                        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;">
-                            <label style="display: flex; align-items: center; gap: 6px;"><input type="checkbox" id="reminderViaEmail" checked><span>Email</span></label>
-                            <label style="display: flex; align-items: center; gap: 6px;"><input type="checkbox" id="reminderViaSMS"><span>SMS</span></label>
-                            <label style="display: flex; align-items: center; gap: 6px;"><input type="checkbox" id="reminderViaZalo"><span>Zalo</span></label>
-                        </div>
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label for="appointmentNotes">Ghi chú</label>
-                    <textarea id="appointmentNotes" style="min-height: 80px;"></textarea>
-                </div>
-            </div>
-            <div class="form-actions" style="padding: 15px 20px; border-top: 1px solid #e2e8f0;">
-                <button type="button" class="btn btn-secondary" onclick="closeModal('appointmentModal')">Hủy</button>
-                <button type="submit" class="btn btn-primary">Tạo Lịch hẹn</button>
-            </div>
-        </form>
-    </div>
-</div>
-
-<!-- Modal chi tiết lịch hẹn -->
-<div id="appointmentDetailModal" class="modal">
-    <div class="modal-content" style="max-width: 700px;">
-        <div class="modal-header">
-            <h2>Chi tiết Lịch hẹn</h2>
-            <button class="close-btn" onclick="closeModal('appointmentDetailModal')">&times;</button>
-        </div>
-        <div style="padding: 20px;">
-            <div class="modal-grid-2" style="gap: 20px;">
-                <div>
-                    <p><strong>Khách hàng:</strong></p>
-                    <p id="detailAppointmentCustomer" style="font-size: 16px; margin-bottom: 15px;"></p>
-                    <p><strong>Tiêu đề:</strong></p>
-                    <p id="detailAppointmentTitle" style="margin-bottom: 15px;"></p>
-                    <p><strong>Loại:</strong></p>
-                    <p id="detailAppointmentType" style="margin-bottom: 15px;"></p>
-                    <div id="detailAppointmentLocationSection" style="display: none;">
-                        <p><strong>Địa điểm / Link:</strong></p>
-                        <p id="detailAppointmentLocation" style="margin-bottom: 15px; word-break: break-all;"></p>
-                    </div>
-                </div>
-                <div>
-                    <p><strong>Ngày/Giờ:</strong></p>
-                    <p id="detailAppointmentDateTime" style="color: #18181b; font-weight: 600; font-size: 16px; margin-bottom: 15px;"></p>
-                    <p><strong>Nhắc nhở:</strong></p>
-                    <p id="detailAppointmentReminder" style="margin-bottom: 15px;"></p>
-                    <p><strong>Trạng thái:</strong></p>
-                    <p id="detailAppointmentStatus" style="margin-bottom: 15px;"></p>
-                    <div id="detailReminderMessageTypesSection" style="display: none;">
-                        <p><strong>Loại thông điệp nhắc nhở:</strong></p>
-                        <p id="detailReminderMessageTypes" style="margin-bottom: 15px;"></p>
-                    </div>
-                </div>
-            </div>
-            <div class="trial-info-box">
-                <p><strong>Ghi chú:</strong></p>
-                <p id="detailAppointmentNotes"></p>
-            </div>
-            <div class="form-actions">
-                <button type="button" class="btn btn-secondary" onclick="closeModal('appointmentDetailModal')">Đóng</button>
-                <button type="button" class="btn btn-primary" onclick="editAppointmentFromDetail()">Chỉnh sửa</button>
-                <button type="button" class="btn btn-primary" onclick="completeAppointment()">Hoàn thành & Nhập Kết quả</button>
-            </div>
-        </div>
-    </div>
-</div>
 
 <!-- Modal đề nghị xóa khách hàng -->
 <div id="requestDeleteModal" class="modal">

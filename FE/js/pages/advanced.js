@@ -6,11 +6,86 @@ function daysBetweenToday(dateString) {
     return Math.ceil((new Date(dateString) - new Date()) / (1000 * 60 * 60 * 24));
 }
 
-function loadTrialManagement() {
+function showNotification(message, type = 'info') {
+    alert((type === 'success' ? '✅ ' : type === 'danger' || type === 'error' ? '❌ ' : type === 'warning' ? '⚠️ ' : 'ℹ️ ') + message);
+}
+
+async function loadTrialManagement() {
     const content = document.getElementById('mainContent');
     if (!content) return;
 
-    const trials = DATA.trialCustomers || [];
+    const isApiSession = AUTH.getCurrentUser()?.authSource === 'api';
+    let trials = [];
+
+    if (isApiSession) {
+        try {
+            const response = await API_SERVICES.khachHang.list();
+            const customers = (response.data || response || []).filter(c => !c.daXoa);
+            
+            const trialCustomers = customers.filter(c => 
+                c.trangThaiDungThu === 'Đang dùng thử' || 
+                c.trangThaiDungThu === 'Hết hạn dùng thử' ||
+                c.ngayBatDauDungThu !== null
+            );
+
+            trials = await Promise.all(trialCustomers.map(async c => {
+                const cid = c.maKhachHang || c.id;
+                try {
+                    const trialRes = await API_SERVICES.khachHang.getTrial(cid);
+                    const trialData = trialRes.data || trialRes;
+                    
+                    const startDate = trialData.startDate || c.ngayBatDauDungThu;
+                    const durationDays = trialData.durationDays || c.soNgayDungThu || 30;
+                    
+                    let endDateStr = '';
+                    if (startDate) {
+                        const sDate = new Date(startDate);
+                        sDate.setDate(sDate.getDate() + durationDays);
+                        endDateStr = sDate.toISOString().split('T')[0];
+                    }
+
+                    return {
+                        id: cid,
+                        customerId: cid,
+                        customerName: trialData.customerName || c.hoTen || c.name,
+                        startDate: startDate,
+                        endDate: endDateStr,
+                        daysAllowed: durationDays,
+                        remainingDays: trialData.remainingDays,
+                        reminderDays: c.reminderDays || 3,
+                        notes: trialData.status || c.trangThaiDungThu || ''
+                    };
+                } catch (e) {
+                    console.error(`Error loading trial details for customer ${cid}:`, e);
+                    let endDateStr = '';
+                    if (c.ngayBatDauDungThu) {
+                        const sDate = new Date(c.ngayBatDauDungThu);
+                        sDate.setDate(sDate.getDate() + (c.soNgayDungThu || 30));
+                        endDateStr = sDate.toISOString().split('T')[0];
+                    }
+                    return {
+                        id: cid,
+                        customerId: cid,
+                        customerName: c.hoTen || c.name,
+                        startDate: c.ngayBatDauDungThu,
+                        endDate: endDateStr,
+                        daysAllowed: c.soNgayDungThu || 30,
+                        remainingDays: null,
+                        reminderDays: 3,
+                        notes: c.trangThaiDungThu || ''
+                    };
+                }
+            }));
+            
+            window.CURRENT_TRIALS = trials;
+        } catch (error) {
+            console.error('Error fetching trials from API:', error);
+            showNotification('Không thể tải danh sách dùng thử từ API', 'danger');
+            trials = [];
+        }
+    } else {
+        trials = DATA.trialCustomers || [];
+    }
     
     content.innerHTML = `
         <div class="page-header">
@@ -29,16 +104,22 @@ function loadTrialManagement() {
             </div>
             <div class="stat-card" style="background: white; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0;">
                 <h4 style="font-size: 13px; color: #64748b; margin: 0 0 8px 0;">Đang hoạt động</h4>
-                <div style="font-size: 28px; font-weight: 700; color: #10b981;">${trials.filter(t => daysBetweenToday(t.endDate) > 0).length}</div>
+                <div style="font-size: 28px; font-weight: 700; color: #10b981;">${trials.filter(t => {
+                    const days = (t.remainingDays !== undefined && t.remainingDays !== null) ? t.remainingDays : daysBetweenToday(t.endDate);
+                    return days > 0;
+                }).length}</div>
             </div>
             <div class="stat-card" style="background: white; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0;">
                 <h4 style="font-size: 13px; color: #64748b; margin: 0 0 8px 0;">Hết hạn</h4>
-                <div style="font-size: 28px; font-weight: 700; color: #ef4444;">${trials.filter(t => daysBetweenToday(t.endDate) <= 0).length}</div>
+                <div style="font-size: 28px; font-weight: 700; color: #ef4444;">${trials.filter(t => {
+                    const days = (t.remainingDays !== undefined && t.remainingDays !== null) ? t.remainingDays : daysBetweenToday(t.endDate);
+                    return days <= 0;
+                }).length}</div>
             </div>
             <div class="stat-card" style="background: white; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0;">
                 <h4 style="font-size: 13px; color: #64748b; margin: 0 0 8px 0;">Sắp hết hạn</h4>
                 <div style="font-size: 28px; font-weight: 700; color: #f59e0b;">${trials.filter(t => {
-                    const days = daysBetweenToday(t.endDate);
+                    const days = (t.remainingDays !== undefined && t.remainingDays !== null) ? t.remainingDays : daysBetweenToday(t.endDate);
                     return days > 0 && days <= 7;
                 }).length}</div>
             </div>
@@ -68,7 +149,7 @@ function loadTrialManagement() {
                             </td>
                         </tr>
                     ` : trials.map(trial => {
-                        const daysLeft = daysBetweenToday(trial.endDate);
+                        const daysLeft = (trial.remainingDays !== undefined && trial.remainingDays !== null) ? trial.remainingDays : daysBetweenToday(trial.endDate);
                         const isExpired = daysLeft <= 0;
                         const isExpiringSoon = daysLeft > 0 && daysLeft <= 7;
                         
@@ -110,20 +191,79 @@ function loadTrialManagement() {
     `;
 }
 
-function openTrialModal(trialId = null) {
-    const trial = trialId ? DATA.trialCustomers.find(item => Number(item.id) === Number(trialId)) : null;
-    
+async function openTrialModal(trialId = null) {
+    const isApiSession = AUTH.getCurrentUser()?.authSource === 'api';
+    let trial = null;
+    let customers = [];
+
+    if (isApiSession) {
+        // Fetch trial from cache or API
+        if (trialId) {
+            trial = window.CURRENT_TRIALS?.find(item => Number(item.id) === Number(trialId)) || null;
+            if (!trial) {
+                try {
+                    const response = await API_SERVICES.khachHang.getTrial(trialId);
+                    const trialData = response.data || response;
+                    
+                    let endDateStr = '';
+                    if (trialData.startDate) {
+                        const sDate = new Date(trialData.startDate);
+                        sDate.setDate(sDate.getDate() + (trialData.durationDays || 30));
+                        endDateStr = sDate.toISOString().split('T')[0];
+                    }
+
+                    trial = {
+                        id: trialData.customerId,
+                        customerId: trialData.customerId,
+                        customerName: trialData.customerName,
+                        startDate: trialData.startDate,
+                        endDate: endDateStr,
+                        daysAllowed: trialData.durationDays,
+                        remainingDays: trialData.remainingDays,
+                        reminderDays: 3,
+                        notes: trialData.status || ''
+                    };
+                } catch (error) {
+                    console.error('Error fetching trial:', error);
+                }
+            }
+        }
+        
+        // Fetch all customers for the dropdown
+        try {
+            const response = await API_SERVICES.khachHang.list();
+            customers = (response.data || response || []).filter(c => !c.daXoa);
+        } catch (error) {
+            console.error('Error loading customers:', error);
+            showNotification('Không thể tải danh sách khách hàng', 'danger');
+            return;
+        }
+    } else {
+        trial = trialId ? DATA.trialCustomers.find(item => Number(item.id) === Number(trialId)) : null;
+        customers = DATA.customers.filter(c => !c.deleted);
+    }
+
     // Set modal title
     document.getElementById('trialModalTitle').textContent = trial ? 'Cập nhật Dùng thử' : 'Thêm Dùng thử';
     
     // Populate customer dropdown
     const customerSelect = document.getElementById('trialCustomer');
     customerSelect.innerHTML = '<option value="">-- Chọn khách hàng --</option>';
-    DATA.customers.filter(c => !c.deleted).forEach(customer => {
+    
+    // Disable customer dropdown when editing, since trial is tied to specific customer
+    if (trial) {
+        customerSelect.disabled = true;
+    } else {
+        customerSelect.disabled = false;
+    }
+
+    customers.forEach(customer => {
         const option = document.createElement('option');
-        option.value = customer.id;
-        option.textContent = customer.name;
-        if (trial && Number(customer.id) === Number(trial.customerId)) {
+        const cid = customer.maKhachHang || customer.id;
+        const cname = customer.hoTen || customer.name;
+        option.value = cid;
+        option.textContent = cname;
+        if (trial && Number(cid) === Number(trial.customerId)) {
             option.selected = true;
         }
         customerSelect.appendChild(option);
@@ -142,8 +282,14 @@ function openTrialModal(trialId = null) {
     document.getElementById('trialForm').dataset.trialId = trial?.id || '';
     
     // Setup event listeners for auto-calculate end date
-    document.getElementById('trialStartDate').addEventListener('change', updateTrialEndDate);
-    document.getElementById('trialDays').addEventListener('input', updateTrialEndDate);
+    const startDateEl = document.getElementById('trialStartDate');
+    const daysEl = document.getElementById('trialDays');
+    
+    startDateEl.removeEventListener('change', updateTrialEndDate);
+    daysEl.removeEventListener('input', updateTrialEndDate);
+    
+    startDateEl.addEventListener('change', updateTrialEndDate);
+    daysEl.addEventListener('input', updateTrialEndDate);
     
     // Open modal
     openModal('trialModal');
@@ -160,46 +306,72 @@ function updateTrialEndDate() {
     }
 }
 
-function saveTrialFromModal(e) {
+async function saveTrialFromModal(e) {
     e.preventDefault();
     
     const form = e.target;
     const trialId = form.dataset.trialId;
     
     const customerId = Number(document.getElementById('trialCustomer').value);
-    const customer = DATA.customers.find(item => Number(item.id) === customerId);
+    if (!customerId) {
+        showNotification('Vui lòng chọn khách hàng!', 'warning');
+        return;
+    }
+
     const startDate = document.getElementById('trialStartDate').value;
     const days = Number(document.getElementById('trialDays').value || 30);
     const endDate = document.getElementById('trialEndDate').value;
+    const reminderDays = Number(document.getElementById('trialReminderDays').value || 3);
+    const notes = document.getElementById('trialNotes').value || '';
 
-    const payload = {
-        customerId,
-        customerName: customer?.name || '',
-        startDate,
-        endDate,
-        daysAllowed: days,
-        reminderDays: Number(document.getElementById('trialReminderDays').value || 0),
-        notes: document.getElementById('trialNotes').value || ''
-    };
+    const isApiSession = AUTH.getCurrentUser()?.authSource === 'api';
 
-    if (trialId) {
-        // Update existing
-        const trial = DATA.trialCustomers.find(item => Number(item.id) === Number(trialId));
-        if (trial) {
-            Object.assign(trial, payload);
+    if (isApiSession) {
+        try {
+            const payload = {
+                startDate: startDate,
+                durationDays: days,
+                status: 'Đang dùng thử'
+            };
+            
+            await API_SERVICES.khachHang.updateTrial(customerId, payload);
+            showNotification(trialId ? 'Cập nhật dùng thử thành công!' : 'Thêm dùng thử thành công!', 'success');
+        } catch (error) {
+            console.error('Error saving trial to API:', error);
+            showNotification('Không thể lưu thông tin dùng thử', 'danger');
+            return;
         }
-        showNotification('Cập nhật dùng thử thành công!', 'success');
     } else {
-        // Create new
-        DATA.trialCustomers.push({
-            id: Math.max(0, ...DATA.trialCustomers.map(item => Number(item.id) || 0)) + 1,
-            ...payload
-        });
-        showNotification('Thêm dùng thử thành công!', 'success');
+        const customer = DATA.customers.find(item => Number(item.id) === customerId);
+        const payload = {
+            customerId,
+            customerName: customer?.name || '',
+            startDate,
+            endDate,
+            daysAllowed: days,
+            reminderDays,
+            notes
+        };
+
+        if (trialId) {
+            // Update existing
+            const trial = DATA.trialCustomers.find(item => Number(item.id) === Number(trialId));
+            if (trial) {
+                Object.assign(trial, payload);
+            }
+            showNotification('Cập nhật dùng thử thành công!', 'success');
+        } else {
+            // Create new
+            DATA.trialCustomers.push({
+                id: Math.max(0, ...DATA.trialCustomers.map(item => Number(item.id) || 0)) + 1,
+                ...payload
+            });
+            showNotification('Thêm dùng thử thành công!', 'success');
+        }
     }
 
     closeModal('trialModal');
-    loadTrialManagement();
+    await loadTrialManagement();
 }
 
 function editTrial(trialId) {
@@ -207,10 +379,18 @@ function editTrial(trialId) {
 }
 
 function viewTrialDetail(trialId) {
-    const trial = DATA.trialCustomers.find(item => Number(item.id) === Number(trialId));
+    const isApiSession = AUTH.getCurrentUser()?.authSource === 'api';
+    let trial = null;
+    if (isApiSession) {
+        trial = window.CURRENT_TRIALS?.find(item => Number(item.id) === Number(trialId));
+    } else {
+        trial = DATA.trialCustomers.find(item => Number(item.id) === Number(trialId));
+    }
     if (!trial) return;
     
-    const daysLeft = daysBetweenToday(trial.endDate);
+    const daysLeft = (trial.remainingDays !== undefined && trial.remainingDays !== null)
+        ? trial.remainingDays
+        : daysBetweenToday(trial.endDate);
     const isExpired = daysLeft <= 0;
     
     // Fill detail modal
@@ -264,31 +444,67 @@ function viewTrialDetail(trialId) {
 }
 
 function editTrialFromDetail() {
-    // This function is called from modal button
     closeModal('trialDetailModal');
 }
 
 function deleteTrialFromDetail() {
     const customerName = document.getElementById('trialDetailCustomer').textContent;
-    const trial = DATA.trialCustomers.find(t => t.customerName === customerName);
+    const isApiSession = AUTH.getCurrentUser()?.authSource === 'api';
+    let trial = null;
+    if (isApiSession) {
+        trial = window.CURRENT_TRIALS?.find(t => t.customerName === customerName);
+    } else {
+        trial = DATA.trialCustomers.find(t => t.customerName === customerName);
+    }
     if (trial) {
         closeModal('trialDetailModal');
         deleteTrial(trial.id);
     }
 }
 
-function deleteTrial(trialId) {
-    const trial = DATA.trialCustomers.find(item => Number(item.id) === Number(trialId));
-    if (!trial || !confirm(`Bạn có chắc chắn muốn xóa dùng thử của "${trial.customerName}"?`)) return;
+async function deleteTrial(trialId) {
+    const isApiSession = AUTH.getCurrentUser()?.authSource === 'api';
+    let customerName = '';
     
-    DATA.trialCustomers = DATA.trialCustomers.filter(item => Number(item.id) !== Number(trialId));
-    showNotification('Xóa dùng thử thành công!', 'success');
+    if (isApiSession) {
+        const trial = window.CURRENT_TRIALS?.find(item => Number(item.id) === Number(trialId));
+        if (!trial) return;
+        customerName = trial.customerName;
+        if (!confirm(`Bạn có chắc chắn muốn xóa dùng thử của "${customerName}"?`)) return;
+        
+        try {
+            await API_SERVICES.khachHang.updateTrial(trialId, {
+                startDate: null,
+                durationDays: 0,
+                status: 'Chưa dùng thử'
+            });
+            showNotification('Xóa dùng thử thành công!', 'success');
+        } catch (error) {
+            console.error('Error deleting trial:', error);
+            showNotification('Không thể xóa thông tin dùng thử', 'danger');
+            return;
+        }
+    } else {
+        const trial = DATA.trialCustomers.find(item => Number(item.id) === Number(trialId));
+        if (!trial || !confirm(`Bạn có chắc chắn muốn xóa dùng thử của "${trial.customerName}"?`)) return;
+        customerName = trial.customerName;
+        
+        DATA.trialCustomers = DATA.trialCustomers.filter(item => Number(item.id) !== Number(trialId));
+        showNotification('Xóa dùng thử thành công!', 'success');
+    }
+    
     closeModal('trialDetailModal');
-    loadTrialManagement();
+    await loadTrialManagement();
 }
 
 function openConvertTrialModal(trialId) {
-    const trial = DATA.trialCustomers.find(item => Number(item.id) === Number(trialId));
+    const isApiSession = AUTH.getCurrentUser()?.authSource === 'api';
+    let trial = null;
+    if (isApiSession) {
+        trial = window.CURRENT_TRIALS?.find(item => Number(item.id) === Number(trialId));
+    } else {
+        trial = DATA.trialCustomers.find(item => Number(item.id) === Number(trialId));
+    }
     if (!trial) return;
     
     document.getElementById('convertTrialCustomerName').textContent = trial.customerName;
@@ -297,11 +513,17 @@ function openConvertTrialModal(trialId) {
     openModal('convertTrialModal');
 }
 
-function saveConvertTrial(e) {
+async function saveConvertTrial(e) {
     e.preventDefault();
     
     const trialId = e.target.dataset.trialId;
-    const trial = DATA.trialCustomers.find(item => Number(item.id) === Number(trialId));
+    const isApiSession = AUTH.getCurrentUser()?.authSource === 'api';
+    let trial = null;
+    if (isApiSession) {
+        trial = window.CURRENT_TRIALS?.find(item => Number(item.id) === Number(trialId));
+    } else {
+        trial = DATA.trialCustomers.find(item => Number(item.id) === Number(trialId));
+    }
     if (!trial) return;
     
     const newStatus = document.getElementById('convertTrialNewStatus').value;
@@ -309,16 +531,50 @@ function saveConvertTrial(e) {
     const contractValue = document.getElementById('convertTrialContractValue').value;
     const notes = document.getElementById('convertTrialNotes').value;
     
-    // Update customer status
-    const customer = DATA.customers.find(c => Number(c.id) === Number(trial.customerId));
-    if (customer) {
-        customer.status = newStatus;
-        customer.trialStartDate = null;
-        customer.trialDays = 0;
+    if (isApiSession) {
+        try {
+            await API_SERVICES.khachHang.updateTrial(trialId, {
+                status: 'Đã chuyển đổi'
+            });
+            
+            const customerRes = await API_SERVICES.khachHang.detail(trialId);
+            const customer = customerRes.data || customerRes;
+            
+            const payload = {
+                hoTen: customer.hoTen,
+                email: customer.email,
+                soDienThoai: customer.soDienThoai,
+                gioiTinh: customer.gioiTinh,
+                ngaySinh: customer.ngaySinh,
+                congTy: customer.congTy,
+                chucVuTaiCongTy: customer.chucVuTaiCongTy,
+                websiteCongTy: customer.websiteCongTy,
+                diaChiChiTiet: customer.diaChiChiTiet,
+                trangThaiKhach: newStatus,
+                diemTiemNang: customer.diemTiemNang || 0,
+                maNguoiPhuTrach: customer.maNguoiPhuTrach
+            };
+            
+            await API_SERVICES.khachHang.update(trialId, payload);
+            showNotification(`Chuyển đổi ${trial.customerName} thành công!`, 'success');
+        } catch (error) {
+            console.error('Error converting trial:', error);
+            showNotification('Không thể chuyển đổi dùng thử', 'danger');
+            return;
+        }
+    } else {
+        // Update customer status
+        const customer = DATA.customers.find(c => Number(c.id) === Number(trial.customerId));
+        if (customer) {
+            customer.status = newStatus;
+            customer.trialStartDate = null;
+            customer.trialDays = 0;
+        }
+        
+        // Remove from trial list
+        DATA.trialCustomers = DATA.trialCustomers.filter(item => Number(item.id) !== Number(trialId));
+        showNotification(`Chuyển đổi ${trial.customerName} thành công!`, 'success');
     }
-    
-    // Remove from trial list
-    DATA.trialCustomers = DATA.trialCustomers.filter(item => Number(item.id) !== Number(trialId));
     
     // Add to audit log
     if (typeof DATA.addAuditLog === 'function') {
@@ -326,15 +582,22 @@ function saveConvertTrial(e) {
     }
     
     closeModal('convertTrialModal');
-    showNotification(`Chuyển đổi ${trial.customerName} thành công!`, 'success');
-    loadTrialManagement();
+    await loadTrialManagement();
 }
 
 function extendTrial(trialId) {
-    const trial = DATA.trialCustomers.find(item => Number(item.id) === Number(trialId));
+    const isApiSession = AUTH.getCurrentUser()?.authSource === 'api';
+    let trial = null;
+    if (isApiSession) {
+        trial = window.CURRENT_TRIALS?.find(item => Number(item.id) === Number(trialId));
+    } else {
+        trial = DATA.trialCustomers.find(item => Number(item.id) === Number(trialId));
+    }
     if (!trial) return;
     
-    const daysLeft = daysBetweenToday(trial.endDate);
+    const daysLeft = (trial.remainingDays !== undefined && trial.remainingDays !== null)
+        ? trial.remainingDays
+        : daysBetweenToday(trial.endDate);
     
     document.getElementById('extendTrialCustomerName').textContent = trial.customerName;
     document.getElementById('extendTrialCurrentEndDate').textContent = formatDate(trial.endDate);
@@ -342,46 +605,79 @@ function extendTrial(trialId) {
     document.getElementById('extendTrialForm').dataset.trialId = trialId;
     
     // Setup event listener for auto-calculate new end date
-    document.getElementById('extendTrialDays').addEventListener('input', function() {
-        const days = Number(this.value || 0);
+    const extendDaysEl = document.getElementById('extendTrialDays');
+    const updateExtendCalc = function() {
+        const days = Number(extendDaysEl.value || 0);
         const currentEndDate = new Date(trial.endDate);
         const newEndDate = new Date(currentEndDate);
         newEndDate.setDate(newEndDate.getDate() + days);
         document.getElementById('extendTrialNewEndDate').value = newEndDate.toISOString().split('T')[0];
-    });
+    };
+    
+    extendDaysEl.removeEventListener('input', updateExtendCalc);
+    extendDaysEl.addEventListener('input', updateExtendCalc);
     
     // Trigger initial calculation
-    document.getElementById('extendTrialDays').dispatchEvent(new Event('input'));
+    extendDaysEl.dispatchEvent(new Event('input'));
     
     openModal('extendTrialModal');
 }
 
-function saveExtendTrial(e) {
+async function saveExtendTrial(e) {
     e.preventDefault();
     
     const trialId = e.target.dataset.trialId;
-    const trial = DATA.trialCustomers.find(item => Number(item.id) === Number(trialId));
+    const isApiSession = AUTH.getCurrentUser()?.authSource === 'api';
+    let trial = null;
+    if (isApiSession) {
+        trial = window.CURRENT_TRIALS?.find(item => Number(item.id) === Number(trialId));
+    } else {
+        trial = DATA.trialCustomers.find(item => Number(item.id) === Number(trialId));
+    }
     if (!trial) return;
     
     const extendDays = Number(document.getElementById('extendTrialDays').value);
     const reason = document.getElementById('extendTrialReason').value;
     
-    // Update end date
-    const currentEndDate = new Date(trial.endDate);
-    currentEndDate.setDate(currentEndDate.getDate() + extendDays);
-    trial.endDate = currentEndDate.toISOString().split('T')[0];
-    trial.daysAllowed += extendDays;
-    trial.notes = (trial.notes || '') + `\n[Gia hạn ${extendDays} ngày] ${reason}`;
+    if (isApiSession) {
+        try {
+            const newDurationDays = Number(trial.daysAllowed || 30) + extendDays;
+            
+            await API_SERVICES.khachHang.updateTrial(trialId, {
+                startDate: trial.startDate,
+                durationDays: newDurationDays,
+                status: 'Đang dùng thử'
+            });
+            
+            showNotification(`Gia hạn thành công ${extendDays} ngày!`, 'success');
+        } catch (error) {
+            console.error('Error extending trial:', error);
+            showNotification('Không thể gia hạn dùng thử', 'danger');
+            return;
+        }
+    } else {
+        // Update end date
+        const currentEndDate = new Date(trial.endDate);
+        currentEndDate.setDate(currentEndDate.getDate() + extendDays);
+        trial.endDate = currentEndDate.toISOString().split('T')[0];
+        trial.daysAllowed += extendDays;
+        trial.notes = (trial.notes || '') + `\n[Gia hạn ${extendDays} ngày] ${reason}`;
+        showNotification(`Gia hạn thành công ${extendDays} ngày!`, 'success');
+    }
     
     closeModal('extendTrialModal');
-    showNotification(`Gia hạn thành công ${extendDays} ngày!`, 'success');
-    loadTrialManagement();
+    await loadTrialManagement();
 }
 
 function convertTrialToCustomer() {
-    // This is called from detail modal button
     const customerName = document.getElementById('trialDetailCustomer').textContent;
-    const trial = DATA.trialCustomers.find(t => t.customerName === customerName);
+    const isApiSession = AUTH.getCurrentUser()?.authSource === 'api';
+    let trial = null;
+    if (isApiSession) {
+        trial = window.CURRENT_TRIALS?.find(t => t.customerName === customerName);
+    } else {
+        trial = DATA.trialCustomers.find(t => t.customerName === customerName);
+    }
     if (trial) {
         closeModal('trialDetailModal');
         openConvertTrialModal(trial.id);
@@ -967,7 +1263,12 @@ async function openAppointmentModal(appointmentId = null) {
     // Populate customer dropdown
     const customerSelect = document.getElementById('appointmentCustomer');
     customerSelect.innerHTML = '<option value="">-- Chọn khách hàng --</option>' + 
-        customers.map(c => `<option value="${c.id}" ${appointment && Number(c.id) === Number(appointment.customerId || appointment.khachHangId) ? 'selected' : ''}>${c.hoTen || c.name}</option>`).join('');
+        customers.map(c => {
+            const cid = c.maKhachHang || c.id;
+            const cname = c.hoTen || c.name;
+            const isSelected = appointment && Number(cid) === Number(appointment.customerId || appointment.khachHangId || (appointment.khachHang && (appointment.khachHang.maKhachHang || appointment.khachHang.id)));
+            return `<option value="${cid}" ${isSelected ? 'selected' : ''}>${cname}</option>`;
+        }).join('');
     
     // Set min date to today
     const today = new Date();

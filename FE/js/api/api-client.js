@@ -21,11 +21,18 @@ const API_CLIENT = {
         return `${API_CONFIG.BASE_URL}${endpoint}`;
     },
 
-    buildHeaders(customHeaders = {}) {
+    buildHeaders(customHeaders = {}, isFormData = false) {
         const headers = {
             ...API_CONFIG.DEFAULT_HEADERS,
             ...customHeaders
         };
+
+        if (isFormData) {
+            delete headers['Content-Type'];
+            delete headers['content-type'];
+            delete headers['Content-type'];
+            delete headers['CONTENT-TYPE'];
+        }
 
         const token = this.getToken();
         if (token) {
@@ -36,9 +43,10 @@ const API_CLIENT = {
     },
 
     async request(endpoint, options = {}) {
+        const isFormData = options.body instanceof FormData;
         const response = await fetch(this.buildUrl(endpoint), {
             ...options,
-            headers: this.buildHeaders(options.headers || {})
+            headers: this.buildHeaders(options.headers || {}, isFormData)
         });
 
         const contentType = response.headers.get('content-type') || '';

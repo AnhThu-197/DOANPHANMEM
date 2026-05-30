@@ -191,7 +191,7 @@ CREATE TABLE TepDinhKem (
     maTep          INT IDENTITY(1,1) PRIMARY KEY,
     tenTep         NVARCHAR(255) NOT NULL,  
     duongDanLuuTru VARCHAR(500) NOT NULL,  
-    loaiTep        VARCHAR(20) NULL,  
+    loaiTep        VARCHAR(100) NULL,  
     dungLuong      BIGINT NULL,      
     ngayTaiLen     DATETIME DEFAULT GETDATE(),
     maNhanVien     INT NULL FOREIGN KEY REFERENCES NhanVien(maNhanVien)
@@ -430,11 +430,37 @@ CREATE TABLE LichSuDongBoAPI (
     trangThai NVARCHAR(50) NOT NULL,
     ghiChu NVARCHAR(500) NULL
 );
+-- 30. Bảng Cấu hình hệ thống
+CREATE TABLE CauHinhHeThong (
+    id INT PRIMARY KEY DEFAULT 1,
+    tenCongTy NVARCHAR(200) DEFAULT N'CÔNG TY CRM',
+    emailCongTy VARCHAR(150) DEFAULT 'contact@crm.com',
+    soDienThoaiCongTy VARCHAR(20) DEFAULT '0123456789',
+    websiteCongTy VARCHAR(255) DEFAULT 'https://example.com',
+    diaChiCongTy NVARCHAR(500) DEFAULT N'123 Đường ABC, Quận 1, TP.HCM',
+    muiGio NVARCHAR(50) DEFAULT N'Việt Nam (GMT+7)',
+    dinhDangNgay VARCHAR(50) DEFAULT 'DD/MM/YYYY',
+    donViTienTe NVARCHAR(20) DEFAULT N'VND (₫)',
+    ngonNgu NVARCHAR(50) DEFAULT N'Tiếng Việt',
+    thongBaoEmail BIT DEFAULT 1,
+    thongBaoSms BIT DEFAULT 0,
+    thongBaoTrinhDuyet BIT DEFAULT 1,
+    thoiGianHetPhien INT DEFAULT 30,
+    soLanDangNhapSaiToiDa INT DEFAULT 5,
+    thoiHanMatKhau INT DEFAULT 90,
+    xacThuc2YeuTo BIT DEFAULT 0,
+    tuDongSaoLuu BIT DEFAULT 0,
+    tanSuatSaoLuu NVARCHAR(50) DEFAULT N'Hàng ngày',
+    ngayCapNhat DATETIME DEFAULT GETDATE()
+);
 GO
 
 -- ================================================================
 -- PHẦN 2: DỮ LIỆU MẪU
 -- ================================================================
+
+-- Dữ liệu Cấu hình hệ thống mặc định
+INSERT INTO CauHinhHeThong (id) VALUES (1);
 
 -- Dữ liệu Vai Trò
 INSERT INTO VaiTro (tenVaiTro, moTa) VALUES

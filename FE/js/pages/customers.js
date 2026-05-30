@@ -751,7 +751,7 @@ function viewDeleteRequest(requestId) {
     alert(msg);
 }
 
-function openCustomerDetailModal(customerId) {
+async function openCustomerDetailModal(customerId) {
     const c = DATA.customers.find(c => c.id === customerId);
     if (!c) return;
     document.getElementById('detailName').textContent = c.name;
@@ -764,23 +764,203 @@ function openCustomerDetailModal(customerId) {
     document.getElementById('detailScore').textContent = c.score;
     document.getElementById('detailCreatedDate').textContent = c.createdDate;
     document.getElementById('detailLastInteraction').textContent = c.lastInteraction;
-    const interactions = DATA.interactions.filter(i => i.customerId === customerId);
-    document.getElementById('detailInteractionsTable').innerHTML = interactions.map(i => `<tr><td>${getInteractionTypeLabel(i.type)}</td><td>${i.content}</td><td>${i.date}</td><td>${i.notes}</td></tr>`).join('');
+    
+    // Reset file name display and form
+    const fileInput = document.getElementById('detailInteractionFile');
+    if (fileInput) fileInput.value = '';
+    const labelSpan = document.getElementById('detailInteractionFileName');
+    if (labelSpan) labelSpan.textContent = 'Chọn file hoặc kéo thả vào đây';
+
+    // Gọi API để lấy danh sách tương tác thật của khách hàng này
+    try {
+        const interactions = await API_SERVICES.tuongTac.listByCustomer(customerId);
+        document.getElementById('detailInteractionsTable').innerHTML = interactions.map(i => {
+            const attHtml = i.attachments && i.attachments.length > 0
+                ? i.attachments.map(att => `
+                    <div style="margin-top: 4px;">
+                        <a href="${API_CLIENT.buildUrl(att.downloadUrl)}" target="_blank" style="font-size:11.5px;color:#2563eb;text-decoration:none;font-weight:500;" title="Tải xuống tệp">
+                            <i class="fas fa-file-download" style="margin-right:4px;"></i> ${att.fileName}
+                        </a>
+                    </div>
+                  `).join('')
+                : '';
+
+            const dateStr = i.date ? formatDate(i.date) : 'N/A';
+            return `
+                <tr>
+                    <td><span class="interaction-type-badge ${i.type}">${getInteractionTypeLabel(i.type)}</span></td>
+                    <td>
+                        <div style="font-weight: 500;">${i.content}</div>
+                        ${attHtml}
+                    </td>
+                    <td>${dateStr}</td>
+                    <td>${i.notes || ''}</td>
+                    <td>
+                        <button type="button" class="btn-edit" onclick="editCustomerDetailInteraction(event, ${i.id}, ${customerId})" style="padding: 2px 6px; font-size: 11.5px; border-radius: 4px; margin-right: 4px;">Sửa</button>
+                        <button type="button" class="btn-delete" onclick="deleteCustomerDetailInteraction(event, ${i.id}, ${customerId})" style="padding: 2px 6px; font-size: 11.5px; border-radius: 4px;">Xóa</button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    } catch (err) {
+        console.error('Lỗi lấy tương tác khách hàng:', err);
+        document.getElementById('detailInteractionsTable').innerHTML = `<tr><td colspan="5" style="text-align:center;color:#ef4444;">Lỗi tải lịch sử tương tác từ server.</td></tr>`;
+    }
+
     document.getElementById('detailInteractionDate').value = new Date().toISOString().split('T')[0];
     document.getElementById('customerDetailModal').dataset.customerId = customerId;
     document.getElementById('customerDetailModal').style.display = 'block';
     document.body.classList.add('modal-open');
 }
 
-function saveDetailInteraction(e) {
+async function saveDetailInteraction(e) {
     e.preventDefault();
     const customerId = parseInt(document.getElementById('customerDetailModal').dataset.customerId);
-    const newId = Math.max(...DATA.interactions.map(i => i.id), 0) + 1;
-    DATA.interactions.push({ id: newId, customerId, type: document.getElementById('detailInteractionType').value, content: document.getElementById('detailInteractionContent').value, notes: document.getElementById('detailInteractionNotes').value, date: document.getElementById('detailInteractionDate').value, file: null });
-    alert('Thêm tương tác thành công');
-    document.getElementById('detailInteractionForm').reset();
-    document.getElementById('detailInteractionDate').value = new Date().toISOString().split('T')[0];
-    openCustomerDetailModal(customerId);
+    const saveBtn = e.target.querySelector('button[type="submit"]') || document.querySelector('#detailInteractionForm button[type="submit"]');
+    const origBtnText = saveBtn ? saveBtn.innerHTML : 'Lưu';
+
+    if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    }
+
+    const payload = {
+        customerId: customerId,
+        employeeId: AUTH.getCurrentUser()?.employeeId || AUTH.getCurrentUser()?.id || null,
+        type: document.getElementById('detailInteractionType').value,
+        content: document.getElementById('detailInteractionContent').value.trim(),
+        notes: document.getElementById('detailInteractionNotes').value.trim()
+    };
+
+    try {
+        // Thêm tương tác mới bằng API
+        const newInteraction = await API_SERVICES.tuongTac.create(payload);
+
+        // Upload các file đính kèm song song nếu có chọn
+        const fileInput = document.getElementById('detailInteractionFile');
+        if (fileInput && fileInput.files && fileInput.files.length > 0) {
+            const uploadPromises = [];
+            for (let i = 0; i < fileInput.files.length; i++) {
+                uploadPromises.push(API_SERVICES.tuongTac.uploadFile(newInteraction.id, fileInput.files[i]));
+            }
+            await Promise.all(uploadPromises);
+        }
+
+        alert('✓ Đã ghi nhận tương tác mới!');
+        document.getElementById('detailInteractionForm').reset();
+        document.getElementById('detailInteractionDate').value = new Date().toISOString().split('T')[0];
+        
+        await openCustomerDetailModal(customerId);
+
+        // Reload danh sách khách hàng để cập nhật "Tương tác cuối" ngoài bảng
+        await loadCustomers();
+    } catch (err) {
+        console.error('Lỗi lưu tương tác:', err);
+        alert('❌ Không thể lưu tương tác: ' + (err.message || 'Lỗi hệ thống'));
+    } finally {
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = origBtnText;
+        }
+    }
+}
+
+async function editCustomerDetailInteraction(event, interactionId, customerId) {
+    event.stopPropagation();
+    // 1. Đóng modal chi tiết khách hàng trước
+    closeModal('customerDetailModal');
+
+    // 2. Tải và đồng bộ danh sách tương tác
+    try {
+        let list = await API_SERVICES.tuongTac.list();
+        if (typeof currentInteractionsList !== 'undefined') {
+            currentInteractionsList = list;
+        }
+        const interaction = list.find(i => i.id === interactionId);
+        if (!interaction) {
+            alert('❌ Không tìm thấy thông tin tương tác này trên máy chủ.');
+            return;
+        }
+        
+        // Extract customer ID and employee ID with comprehensive fallback support
+        const resolvedCustomerId = interaction.customerId || 
+                                   interaction.maKhachHang || 
+                                   (interaction.khachHang ? (interaction.khachHang.maKhachHang || interaction.khachHang.id) : null) ||
+                                   (interaction.customer ? (interaction.customer.id || interaction.customer.maKhachHang) : null) ||
+                                   customerId;
+                                   
+        const resolvedEmployeeId = interaction.employeeId || 
+                                   interaction.maNhanVien || 
+                                   (interaction.nhanVien ? (interaction.nhanVien.maNhanVien || interaction.nhanVien.id) : null) ||
+                                   (interaction.employee ? (interaction.employee.id || interaction.employee.maNhanVien) : null);
+
+        console.log('Editing interaction from customer detail:', interaction, 'Resolved Customer ID:', resolvedCustomerId, 'Resolved Employee ID:', resolvedEmployeeId);
+
+        await openInteractionModal(resolvedCustomerId, resolvedEmployeeId);
+        
+        const modal = document.getElementById('interactionModal');
+        modal.dataset.interactionId = interactionId;
+        modal.querySelector('h2').textContent = 'Cập nhật Tương tác';
+
+        // Điền dữ liệu vào form sửa
+        document.getElementById('interactionType').value = interaction.type || 'call';
+        document.getElementById('interactionContent').value = interaction.content || '';
+        document.getElementById('interactionNotes').value = interaction.notes || '';
+
+        // Hiển thị tệp đính kèm hiện tại để xóa nếu cần
+        let attContainer = document.getElementById('interactionCurrentAttachments');
+        if (!attContainer) {
+            attContainer = document.createElement('div');
+            attContainer.id = 'interactionCurrentAttachments';
+            attContainer.style.marginTop = '10px';
+            attContainer.style.padding = '10px';
+            attContainer.style.background = '#fafafa';
+            attContainer.style.border = '1px dashed #e4e4e7';
+            attContainer.style.borderRadius = '6px';
+            
+            const fileGroup = document.getElementById('interactionFile').closest('.form-group');
+            fileGroup.parentNode.insertBefore(attContainer, fileGroup);
+        }
+
+        if (interaction.attachments && interaction.attachments.length > 0) {
+            attContainer.style.display = 'block';
+            attContainer.innerHTML = `
+                <div style="font-size: 12.5px; font-weight: 600; color: #18181b; margin-bottom: 6px;">Tệp đính kèm hiện có:</div>
+                ${interaction.attachments.map(att => `
+                    <div style="display: flex; align-items: center; justify-content: space-between; padding: 4px 8px; background: #ffffff; border: 1px solid #e4e4e7; border-radius: 4px; margin-bottom: 4px; font-size: 12px;">
+                        <span style="color: #27272a; font-weight: 500;"><i class="fas fa-file" style="color: #71717a; margin-right: 6px;"></i>${att.fileName}</span>
+                        <button type="button" onclick="deleteInteractionAttachment(${interactionId}, ${att.id})" style="background: none; border: none; color: #ef4444; cursor: pointer; padding: 2px 6px; font-size: 13px;" title="Xóa tệp này">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    </div>
+                `).join('')}
+            `;
+        } else {
+            attContainer.style.display = 'none';
+        }
+    } catch (err) {
+        console.error('Lỗi lấy tương tác sửa:', err);
+        alert('❌ Không thể mở form chỉnh sửa: ' + err.message);
+    }
+}
+
+async function deleteCustomerDetailInteraction(event, interactionId, customerId) {
+    event.stopPropagation();
+    if (!confirm('❓ Bạn có chắc chắn muốn xóa lịch sử tương tác này?')) {
+        return;
+    }
+
+    try {
+        await API_SERVICES.tuongTac.delete(interactionId);
+        alert('✓ Đã xóa tương tác thành công!');
+        // Refresh danh sách tương tác trong modal chi tiết
+        await openCustomerDetailModal(customerId);
+        // Tải lại bảng khách hàng bên ngoài để cập nhật cột tương tác cuối
+        await loadCustomers();
+    } catch (error) {
+        console.error('Lỗi xóa tương tác:', error);
+        alert('❌ Xóa tương tác thất bại: ' + (error.message || 'Lỗi hệ thống'));
+    }
 }
 
 // ---- Filter & Render ----

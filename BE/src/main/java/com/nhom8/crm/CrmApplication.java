@@ -47,6 +47,11 @@ public class CrmApplication {
                     "BEGIN ALTER TABLE TepDinhKem ADD ngayTao DATETIME NULL; END"
                 );
                 
+                // Alter loaiTep column in Database to VARCHAR(100)
+                jdbcTemplate.execute(
+                    "ALTER TABLE TepDinhKem ALTER COLUMN loaiTep VARCHAR(100) NULL;"
+                );
+                
                 System.out.println("TepDinhKem schema migration completed successfully.");
             } catch (Exception e) {
                 System.err.println("Error during TepDinhKem schema migration: " + e.getMessage());

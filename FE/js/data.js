@@ -93,74 +93,7 @@ const DATA = {
         }
     ],
     
-    interactions: [
-        { 
-            id: 1, 
-            customerId: 1, 
-            employeeId: 1, // Nhân viên thực hiện
-            type: 'call', 
-            content: 'Tư vấn sản phẩm', 
-            notes: 'Khách hàng quan tâm', 
-            date: '2024-03-20', 
-            updatedDate: '2024-03-20', // Ngày cập nhật
-            file: null 
-        },
-        { 
-            id: 2, 
-            customerId: 2, 
-            employeeId: 1,
-            type: 'email', 
-            content: 'Gửi báo giá', 
-            notes: 'Chờ phản hồi', 
-            date: '2024-03-18', 
-            updatedDate: '2024-03-18',
-            file: null 
-        },
-        { 
-            id: 3, 
-            customerId: 1, 
-            employeeId: 2,
-            type: 'meeting', 
-            content: 'Cuộc họp trực tiếp', 
-            notes: 'Thảo luận hợp đồng', 
-            date: '2024-03-15', 
-            updatedDate: '2024-03-15',
-            file: null 
-        },
-        { 
-            id: 4, 
-            customerId: 3, 
-            employeeId: 1,
-            type: 'call', 
-            content: 'Gọi theo dõi', 
-            notes: 'Khách hàng hỏi về giá', 
-            date: '2024-03-22', 
-            updatedDate: '2024-03-22',
-            file: null 
-        },
-        { 
-            id: 5, 
-            customerId: 2, 
-            employeeId: 2,
-            type: 'message', 
-            content: 'Gửi tin nhắn', 
-            notes: 'Nhắc nhở về sản phẩm', 
-            date: '2024-03-21', 
-            updatedDate: '2024-03-21',
-            file: null 
-        },
-        { 
-            id: 6, 
-            customerId: 1, 
-            employeeId: 1,
-            type: 'email', 
-            content: 'Gửi hóa đơn', 
-            notes: 'Hoàn tất giao dịch', 
-            date: '2024-03-19', 
-            updatedDate: '2024-03-19',
-            file: null 
-        }
-    ],
+    interactions: [],
     
     campaigns: [
         { 

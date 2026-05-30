@@ -1,14 +1,54 @@
 // ============================================
-// CÀI ĐẶT HỆ THỐNG
+// CÀI ĐẶT HỆ THỐNG (ĐÃ ĐỒNG BỘ backend API)
 // ============================================
 
-function loadSettings() {
+async function loadSettings() {
     const mainContent = document.getElementById('mainContent');
+    
+    mainContent.innerHTML = `
+        <h2 class="page-title">Cấu hình Hệ thống</h2>
+        <div id="settingsLoading" style="text-align: center; padding: 40px; color: #71717a;">
+            <i class="fas fa-spinner fa-spin" style="font-size: 32px; margin-bottom: 10px;"></i>
+            <p>Đang tải cấu hình hệ thống từ máy chủ...</p>
+        </div>
+    `;
+
+    const isApiSession = typeof AUTH !== 'undefined' && AUTH.getCurrentUser()?.authSource === 'api';
+
+    if (isApiSession) {
+        try {
+            const config = await API_SERVICES.cauhinh.get();
+            // Ánh xạ các thuộc tính từ DTO của Backend sang định dạng DATA.systemSettings của FE
+            DATA.systemSettings = {
+                companyName: config.companyName || 'CÔNG TY CRM',
+                companyEmail: config.email || 'contact@crm.com',
+                companyPhone: config.phone || '0123456789',
+                companyWebsite: config.website || '',
+                companyAddress: config.address || '123 Đường ABC, Quận 1, TP.HCM',
+                timezone: config.timezone || 'Asia/Ho_Chi_Minh',
+                dateFormat: config.dateFormat || 'DD/MM/YYYY',
+                currency: config.currency || 'VND',
+                language: config.language || 'vi',
+                emailNotifications: config.emailNotifications !== false,
+                smsNotifications: config.smsNotifications === true,
+                browserNotifications: config.browserNotifications !== false,
+                autoBackup: config.autoBackup === true,
+                backupFrequency: config.backupFrequency || 'daily',
+                sessionTimeout: config.sessionTimeout || 30,
+                maxLoginAttempts: config.maxFailedAttempts || 5,
+                passwordExpiry: config.passwordExpiryDays || 90,
+                require2FA: config.twoFactorAuth === true
+            };
+        } catch (error) {
+            console.error('Lỗi lấy cấu hình hệ thống từ Backend:', error);
+            // Sẽ tự động dùng dữ liệu mặc định bên dưới nếu gặp lỗi API
+        }
+    }
 
     if (!DATA.systemSettings) {
         DATA.systemSettings = {
             companyName: 'CÔNG TY CRM', companyEmail: 'contact@crm.com',
-            companyPhone: '0123456789', companyAddress: '123 Đường ABC, Quận 1, TP.HCM',
+            companyPhone: '0123456789', companyWebsite: '', companyAddress: '123 Đường ABC, Quận 1, TP.HCM',
             timezone: 'Asia/Ho_Chi_Minh', dateFormat: 'DD/MM/YYYY',
             currency: 'VND', language: 'vi',
             emailNotifications: true, smsNotifications: false, browserNotifications: true,
@@ -155,113 +195,274 @@ function loadSettings() {
                             </select>
                         </div>
                         <div style="background: #dbeafe; padding: 20px; border-radius: 8px; border-left: 4px solid #3b82f6;">
-                            <h4 style="margin-bottom: 15px; color: #1e40af;">Sao lưu thủ công</h4>
-                            <button type="button" class="btn btn-primary" onclick="createBackup()"><i class="fas fa-download"></i> Tạo bản sao lưu</button>
+                            <h4 style="margin-bottom: 15px; color: #1e40af;">Sao lưu dữ liệu hệ thống</h4>
+                            <button type="button" class="btn btn-primary" onclick="createBackup()"><i class="fas fa-download"></i> Tạo và tải bản sao lưu</button>
                         </div>
                         <div style="background: #fef3c7; padding: 20px; border-radius: 8px; border-left: 4px solid #f59e0b;">
-                            <h4 style="margin-bottom: 15px; color: #92400e;">Khôi phục dữ liệu</h4>
+                            <h4 style="margin-bottom: 15px; color: #92400e;">Khôi phục dữ liệu hệ thống</h4>
                             <input type="file" id="restoreFile" accept=".json" style="margin-bottom: 10px;">
-                            <button type="button" class="btn btn-secondary" onclick="restoreBackup()"><i class="fas fa-upload"></i> Khôi phục</button>
+                            <button type="button" class="btn btn-secondary" onclick="restoreBackup()"><i class="fas fa-upload"></i> Khôi phục dữ liệu</button>
                         </div>
                     </div>
-                    <div class="form-actions" style="margin-top: 20px;"><button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Lưu cài đặt</button></div>
+                    <div class="form-actions" style="margin-top: 20px;"><button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Lưu cấu hình sao lưu</button></div>
                 </form>
             </div>
         </div>
     `;
 }
 
-// ---- Form handlers (từ settings-handlers.js) ----
+// ---- Helpers đồng bộ hóa dữ liệu lên Backend ----
 
-function saveCompanyInfo(event) {
-    event.preventDefault();
-    DATA.systemSettings.companyName    = document.getElementById('companyName').value;
-    DATA.systemSettings.companyEmail   = document.getElementById('companyEmail').value;
-    DATA.systemSettings.companyPhone   = document.getElementById('companyPhone').value;
-    DATA.systemSettings.companyWebsite = document.getElementById('companyWebsite').value;
-    DATA.systemSettings.companyAddress = document.getElementById('companyAddress').value;
-    DATA.addAuditLog('UPDATE_COMPANY_INFO', 'Cập nhật thông tin công ty', AUTH.getCurrentUser().id);
-    alert('✓ Đã lưu thông tin công ty!');
+async function saveAllSettingsToBackend() {
+    const isApiSession = typeof AUTH !== 'undefined' && AUTH.getCurrentUser()?.authSource === 'api';
+    if (!isApiSession) return true;
+
+    const s = DATA.systemSettings;
+    const payload = {
+        companyName: s.companyName,
+        email: s.companyEmail,
+        phone: s.companyPhone,
+        website: s.companyWebsite,
+        address: s.companyAddress,
+        timezone: s.timezone,
+        dateFormat: s.dateFormat,
+        currency: s.currency,
+        language: s.language,
+        emailNotifications: s.emailNotifications,
+        smsNotifications: s.smsNotifications,
+        browserNotifications: s.browserNotifications,
+        sessionTimeout: s.sessionTimeout,
+        maxFailedAttempts: s.maxLoginAttempts,
+        passwordExpiryDays: s.passwordExpiry,
+        twoFactorAuth: s.require2FA,
+        autoBackup: s.autoBackup,
+        backupFrequency: s.backupFrequency
+    };
+
+    try {
+        await API_SERVICES.cauhinh.update(payload);
+        return true;
+    } catch (err) {
+        console.error('Lỗi khi đồng bộ cấu hình lên máy chủ:', err);
+        alert('❌ Lưu cấu hình lên máy chủ thất bại: ' + (err.message || 'Lỗi hệ thống'));
+        return false;
+    }
 }
 
-function saveSystemSettings(event) {
+// ---- Form handlers (từ settings-handlers.js) ----
+
+async function saveCompanyInfo(event) {
     event.preventDefault();
+    const saveBtn = event.target.querySelector('button[type="submit"]');
+    const origHtml = saveBtn.innerHTML;
+    saveBtn.disabled = true;
+    saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang xử lý...';
+
+    DATA.systemSettings.companyName    = document.getElementById('companyName').value.trim();
+    DATA.systemSettings.companyEmail   = document.getElementById('companyEmail').value.trim();
+    DATA.systemSettings.companyPhone   = document.getElementById('companyPhone').value.trim();
+    DATA.systemSettings.companyWebsite = document.getElementById('companyWebsite').value.trim();
+    DATA.systemSettings.companyAddress = document.getElementById('companyAddress').value.trim();
+
+    const ok = await saveAllSettingsToBackend();
+    if (ok) {
+        DATA.addAuditLog('UPDATE_COMPANY_INFO', 'Cập nhật thông tin công ty', AUTH.getCurrentUser().id);
+        alert('✓ Đã lưu thông tin công ty thành công!');
+    }
+    
+    saveBtn.disabled = false;
+    saveBtn.innerHTML = origHtml;
+}
+
+async function saveSystemSettings(event) {
+    event.preventDefault();
+    const saveBtn = event.target.querySelector('button[type="submit"]');
+    const origHtml = saveBtn.innerHTML;
+    saveBtn.disabled = true;
+    saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang xử lý...';
+
     DATA.systemSettings.timezone   = document.getElementById('timezone').value;
     DATA.systemSettings.dateFormat = document.getElementById('dateFormat').value;
     DATA.systemSettings.currency   = document.getElementById('currency').value;
     DATA.systemSettings.language   = document.getElementById('language').value;
-    DATA.addAuditLog('UPDATE_SYSTEM_SETTINGS', 'Cập nhật cài đặt hệ thống', AUTH.getCurrentUser().id);
-    alert('✓ Đã lưu cài đặt hệ thống!');
+
+    const ok = await saveAllSettingsToBackend();
+    if (ok) {
+        DATA.addAuditLog('UPDATE_SYSTEM_SETTINGS', 'Cập nhật cài đặt hệ thống', AUTH.getCurrentUser().id);
+        alert('✓ Đã lưu cài đặt hệ thống thành công!');
+    }
+
+    saveBtn.disabled = false;
+    saveBtn.innerHTML = origHtml;
 }
 
-function saveNotificationSettings(event) {
+async function saveNotificationSettings(event) {
     event.preventDefault();
+    const saveBtn = event.target.querySelector('button[type="submit"]');
+    const origHtml = saveBtn.innerHTML;
+    saveBtn.disabled = true;
+    saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang xử lý...';
+
     DATA.systemSettings.emailNotifications   = document.getElementById('emailNotifications').checked;
     DATA.systemSettings.smsNotifications     = document.getElementById('smsNotifications').checked;
     DATA.systemSettings.browserNotifications = document.getElementById('browserNotifications').checked;
-    DATA.addAuditLog('UPDATE_NOTIFICATION_SETTINGS', 'Cập nhật cài đặt thông báo', AUTH.getCurrentUser().id);
-    alert('✓ Đã lưu cài đặt thông báo!');
+
+    const ok = await saveAllSettingsToBackend();
+    if (ok) {
+        DATA.addAuditLog('UPDATE_NOTIFICATION_SETTINGS', 'Cập nhật cài đặt thông báo', AUTH.getCurrentUser().id);
+        alert('✓ Đã lưu cài đặt thông báo thành công!');
+    }
+
+    saveBtn.disabled = false;
+    saveBtn.innerHTML = origHtml;
 }
 
-function saveSecuritySettings(event) {
+async function saveSecuritySettings(event) {
     event.preventDefault();
+    const saveBtn = event.target.querySelector('button[type="submit"]');
+    const origHtml = saveBtn.innerHTML;
+    saveBtn.disabled = true;
+    saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang xử lý...';
+
     DATA.systemSettings.sessionTimeout    = parseInt(document.getElementById('sessionTimeout').value);
     DATA.systemSettings.maxLoginAttempts  = parseInt(document.getElementById('maxLoginAttempts').value);
     DATA.systemSettings.passwordExpiry    = parseInt(document.getElementById('passwordExpiry').value);
     DATA.systemSettings.require2FA        = document.getElementById('require2FA').checked;
-    DATA.addAuditLog('UPDATE_SECURITY_SETTINGS', 'Cập nhật cài đặt bảo mật', AUTH.getCurrentUser().id);
-    alert('✓ Đã lưu cài đặt bảo mật!');
+
+    const ok = await saveAllSettingsToBackend();
+    if (ok) {
+        DATA.addAuditLog('UPDATE_SECURITY_SETTINGS', 'Cập nhật cài đặt bảo mật', AUTH.getCurrentUser().id);
+        alert('✓ Đã lưu cài đặt bảo mật thành công!');
+    }
+
+    saveBtn.disabled = false;
+    saveBtn.innerHTML = origHtml;
 }
 
-function saveBackupSettings(event) {
+async function saveBackupSettings(event) {
     event.preventDefault();
+    const saveBtn = event.target.querySelector('button[type="submit"]');
+    const origHtml = saveBtn.innerHTML;
+    saveBtn.disabled = true;
+    saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang xử lý...';
+
     DATA.systemSettings.autoBackup       = document.getElementById('autoBackup').checked;
     DATA.systemSettings.backupFrequency  = document.getElementById('backupFrequency').value;
-    DATA.addAuditLog('UPDATE_BACKUP_SETTINGS', 'Cập nhật cài đặt sao lưu', AUTH.getCurrentUser().id);
-    alert('✓ Đã lưu cài đặt sao lưu!');
+
+    const ok = await saveAllSettingsToBackend();
+    if (ok) {
+        DATA.addAuditLog('UPDATE_BACKUP_SETTINGS', 'Cập nhật cài đặt sao lưu', AUTH.getCurrentUser().id);
+        alert('✓ Đã lưu cấu hình sao lưu thành công!');
+    }
+
+    saveBtn.disabled = false;
+    saveBtn.innerHTML = origHtml;
 }
 
-function createBackup() {
-    const backupData = {
-        version: '1.0',
-        timestamp: new Date().toISOString(),
-        data: {
-            customers: DATA.customers, interactions: DATA.interactions,
-            campaigns: DATA.campaigns, messageTemplates: DATA.messageTemplates,
-            auditLogs: DATA.auditLogs, systemSettings: DATA.systemSettings
+async function createBackup() {
+    const isApiSession = typeof AUTH !== 'undefined' && AUTH.getCurrentUser()?.authSource === 'api';
+    
+    if (isApiSession) {
+        try {
+            const backupBtn = document.querySelector('button[onclick="createBackup()"]');
+            const origHtml = backupBtn.innerHTML;
+            backupBtn.disabled = true;
+            backupBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang tải dữ liệu...';
+
+            const downloadUrl = API_CLIENT.buildUrl(API_ENDPOINTS.cauhinh.backup);
+            const response = await fetch(downloadUrl, {
+                headers: API_CLIENT.buildHeaders()
+            });
+            if (!response.ok) throw new Error('Lấy tệp sao lưu từ máy chủ thất bại!');
+            
+            const blob = await response.blob();
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            
+            const datetime = new Date().toISOString().replace(/[:.]/g, '-');
+            link.download = `crm-database-backup-${datetime}.json`;
+            link.click();
+
+            DATA.addAuditLog('CREATE_BACKUP', 'Tạo bản sao lưu dữ liệu toàn diện (Máy chủ)', AUTH.getCurrentUser().id);
+            alert('✓ Đã tạo và tải xuống bản sao lưu cơ sở dữ liệu toàn diện từ máy chủ thành công!');
+            
+            backupBtn.disabled = false;
+            backupBtn.innerHTML = origHtml;
+        } catch (err) {
+            console.error('Lỗi khi tải bản sao lưu hệ thống:', err);
+            alert('❌ Tạo bản sao lưu thất bại: ' + err.message);
         }
-    };
-    const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `crm-backup-${new Date().toISOString().split('T')[0]}.json`;
-    link.click();
-    DATA.addAuditLog('CREATE_BACKUP', 'Tạo bản sao lưu dữ liệu', AUTH.getCurrentUser().id);
-    alert('✓ Đã tạo bản sao lưu! File sẽ được tải xuống.');
+    } else {
+        // Dự phòng: Sao lưu mock
+        const backupData = {
+            version: '1.0',
+            timestamp: new Date().toISOString(),
+            data: {
+                customers: DATA.customers,
+                interactions: DATA.interactions,
+                campaigns: DATA.campaigns,
+                messageTemplates: DATA.messageTemplates,
+                auditLogs: DATA.auditLogs,
+                systemSettings: DATA.systemSettings
+            }
+        };
+        const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `crm-backup-mock-${new Date().toISOString().split('T')[0]}.json`;
+        link.click();
+        DATA.addAuditLog('CREATE_BACKUP', 'Tạo bản sao lưu dữ liệu (Mock)', AUTH.getCurrentUser().id);
+        alert('✓ Đã tải bản sao lưu dữ liệu giả lập!');
+    }
 }
 
-function restoreBackup() {
+async function restoreBackup() {
     const fileInput = document.getElementById('restoreFile');
     const file = fileInput.files[0];
     if (!file) { alert('⚠ Vui lòng chọn file sao lưu!'); return; }
-    if (!confirm('⚠ CẢNH BÁO: Khôi phục sẽ ghi đè toàn bộ dữ liệu hiện tại!\n\nBạn có chắc chắn?')) return;
+    if (!confirm('⚠ CẢNH BÁO: Khôi phục sẽ ghi đè toàn bộ dữ liệu cấu hình hệ thống!\n\nBạn có chắc chắn muốn tiếp tục?')) return;
 
-    const reader = new FileReader();
-    reader.onload = function(e) {
+    const isApiSession = typeof AUTH !== 'undefined' && AUTH.getCurrentUser()?.authSource === 'api';
+    
+    if (isApiSession) {
         try {
-            const backupData = JSON.parse(e.target.result);
-            if (!backupData.data || !backupData.version) throw new Error('File sao lưu không hợp lệ!');
-            if (backupData.data.customers)       DATA.customers       = backupData.data.customers;
-            if (backupData.data.interactions)    DATA.interactions    = backupData.data.interactions;
-            if (backupData.data.campaigns)       DATA.campaigns       = backupData.data.campaigns;
-            if (backupData.data.messageTemplates) DATA.messageTemplates = backupData.data.messageTemplates;
-            if (backupData.data.systemSettings)  DATA.systemSettings  = backupData.data.systemSettings;
-            DATA.addAuditLog('RESTORE_BACKUP', `Khôi phục từ ${file.name}`, AUTH.getCurrentUser().id);
-            alert('✓ Đã khôi phục dữ liệu thành công!\n\nTrang sẽ được tải lại.');
+            const restoreBtn = document.querySelector('button[onclick="restoreBackup()"]');
+            const origHtml = restoreBtn.innerHTML;
+            restoreBtn.disabled = true;
+            restoreBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang khôi phục...';
+
+            await API_SERVICES.cauhinh.restore(file);
+            
+            DATA.addAuditLog('RESTORE_BACKUP', `Khôi phục dữ liệu từ ${file.name} (Máy chủ)`, AUTH.getCurrentUser().id);
+            alert('✓ Khôi phục cơ sở dữ liệu hệ thống từ tệp sao lưu thành công!\n\nHệ thống sẽ tự động tải lại trang.');
             location.reload();
-        } catch (error) {
-            alert('✗ Lỗi khi khôi phục: ' + error.message);
+        } catch (err) {
+            console.error('Lỗi khôi phục cơ sở dữ liệu từ tệp:', err);
+            alert('❌ Khôi phục dữ liệu thất bại: ' + (err.message || 'Vui lòng kiểm tra lại tệp sao lưu.'));
+            
+            const restoreBtn = document.querySelector('button[onclick="restoreBackup()"]');
+            restoreBtn.disabled = false;
+            restoreBtn.innerHTML = '<i class="fas fa-upload"></i> Khôi phục dữ liệu';
         }
-    };
-    reader.readAsText(file);
+    } else {
+        // Dự phòng: Khôi phục mock
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const backupData = JSON.parse(e.target.result);
+                if (!backupData.data || !backupData.version) throw new Error('File sao lưu không hợp lệ!');
+                if (backupData.data.customers)       DATA.customers       = backupData.data.customers;
+                if (backupData.data.interactions)    DATA.interactions    = backupData.data.interactions;
+                if (backupData.data.campaigns)       DATA.campaigns       = backupData.data.campaigns;
+                if (backupData.data.messageTemplates) DATA.messageTemplates = backupData.data.messageTemplates;
+                if (backupData.data.systemSettings)  DATA.systemSettings  = backupData.data.systemSettings;
+                DATA.addAuditLog('RESTORE_BACKUP', `Khôi phục từ mock ${file.name}`, AUTH.getCurrentUser().id);
+                alert('✓ Đã khôi phục dữ liệu giả lập thành công!\n\nTrang sẽ được tải lại.');
+                location.reload();
+            } catch (error) {
+                alert('✗ Lỗi khi khôi phục mock: ' + error.message);
+            }
+        };
+        reader.readAsText(file);
+    }
 }

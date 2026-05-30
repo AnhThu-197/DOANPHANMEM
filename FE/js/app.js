@@ -94,6 +94,7 @@ function loadPage(page) {
     switch (page) {
         case 'dashboard':        loadDashboard();                    break;
         case 'customers':        loadCustomers();                    break;
+        case 'interactions':     loadInteractions();                 break;
         case 'campaigns':        loadCampaigns();                    break;
         case 'revenue-sync':     loadRevenueSync();                  break;
         case 'contracts':        loadContracts();                    break;

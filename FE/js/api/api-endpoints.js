@@ -30,6 +30,8 @@ const API_ENDPOINTS = {
     trash: "/khach-hang/thung-rac",
     restore: (id) => `/khach-hang/${id}/khoi-phuc`,
     deletePermanently: (id) => `/khach-hang/${id}/permanent`,
+    getTrial: (id) => `/khach-hang/${id}/dungthu`,
+    updateTrial: (id) => `/khach-hang/${id}/dungthu`,
   },
 
   chienDich: {
@@ -103,6 +105,9 @@ const API_ENDPOINTS = {
     create: "/tuongtac",
     update: (id) => `/tuongtac/${id}`,
     delete: (id) => `/tuongtac/${id}`,
+    uploadFile: (id) => `/tuongtac/${id}/files`,
+    deleteFile: (id, fileId) => `/tuongtac/${id}/files/${fileId}`,
+    downloadFile: (fileId) => `/tuongtac/files/${fileId}`,
   },
 
   automation: {
@@ -115,6 +120,20 @@ const API_ENDPOINTS = {
     deactivate: (id) => `/automation/${id}/deactivate`,
     statistics: "/automation/statistics",
     executionHistory: (id) => `/automation/${id}/history`,
+  },
+
+  thongDiep: {
+    templates: "/thong-diep/mau",
+    templateDetail: (id) => `/thong-diep/mau/${id}`,
+    history: "/thong-diep/lich-su",
+    send: "/thong-diep/gui",
+  },
+
+  cauhinh: {
+    get: "/cauhinh",
+    update: "/cauhinh",
+    backup: "/cauhinh/backup",
+    restore: "/cauhinh/restore",
   },
 
   docs: {
