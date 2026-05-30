@@ -430,6 +430,7 @@ CREATE TABLE LichSuDongBoAPI (
     trangThai NVARCHAR(50) NOT NULL,
     ghiChu NVARCHAR(500) NULL
 );
+
 -- 30. Bảng Cấu hình hệ thống
 CREATE TABLE CauHinhHeThong (
     id INT PRIMARY KEY DEFAULT 1,
