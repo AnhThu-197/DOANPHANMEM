@@ -1,0 +1,73 @@
+version: '3.8'
+
+services:
+  db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: crm-db
+    environment:
+      - ACCEPT_EULA=Y
+      - MSSQL_SA_PASSWORD=CrmNhom8Password123!
+      - MSSQL_PID=Developer
+    ports:
+      - "1433:1433"
+    volumes:
+      - mssql_data:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P CrmNhom8Password123! -C -Q 'SELECT 1' || /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P CrmNhom8Password123! -Q 'SELECT 1'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  db-init:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: crm-db-init
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./Nhom8_DoAnPhanMem.sql:/tmp/schema.sql
+    entrypoint: >
+      bash -c "
+      echo 'Waiting for SQL Server to accept connections...';
+      /opt/mssql-tools18/bin/sqlcmd -S db -U sa -P 'CrmNhom8Password123!' -C -i /tmp/schema.sql || \
+      /opt/mssql-tools/bin/sqlcmd -S db -U sa -P 'CrmNhom8Password123!' -i /tmp/schema.sql;
+      echo 'Database schema migration completed successfully!';
+      "
+
+  backend:
+    build:
+      context: ./BE
+      dockerfile: Dockerfile
+    container_name: crm-backend
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
+    ports:
+      - "8082:8082"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:sqlserver://db:1433;databaseName=DoAnPhanMem_Nhom8;encrypt=false;trustServerCertificate=true
+      - SPRING_DATASOURCE_USERNAME=sa
+      - SPRING_DATASOURCE_PASSWORD=CrmNhom8Password123!
+      # Có thể ghi đè các cấu hình mail SMTP khác tại đây nếu muốn
+      # - SPRING_MAIL_USERNAME=your-email@gmail.com
+      # - SPRING_MAIL_PASSWORD=your-app-password
+    volumes:
+      - ./uploads:/app/uploads
+
+  frontend:
+    build:
+      context: ./FE
+      dockerfile: Dockerfile
+    container_name: crm-frontend
+    restart: always
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+
+volumes:
+  mssql_data:
+    driver: local
