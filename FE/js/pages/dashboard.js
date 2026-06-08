@@ -251,8 +251,23 @@ async function loadDashboard() {
             const customers = Array.isArray(customersRes.data)
                 ? customersRes.data
                 : (customersRes.data?.content ?? customersRes.data ?? []);
-            mainContent.innerHTML = renderDashboardHTML(stats, customers, user);
-            initDashboardSearch(customers);
+            
+            // Đồng bộ dữ liệu thật vào DATA.customers để khi bấm Sửa/Xem ở trang Tổng quan không bị hiện mock data
+            if (typeof mapKhachHangBackendToCustomerUI === 'function') {
+                DATA.customers = customers.map(mapKhachHangBackendToCustomerUI);
+            }
+            
+            // Lọc bỏ khách hàng đã xóa
+            const activeCustomers = DATA.customers.filter(c => !c.deleted);
+            
+            // Cache tìm kiếm lưu danh sách sắp xếp giảm dần (mới nhất trước) để khi search ra kết quả mới nhất
+            const searchCache = [...activeCustomers].sort((a, b) => b.id - a.id);
+            
+            // Danh sách hiển thị ban đầu lấy 5 người mới nhất và xếp tăng dần theo ID (từ nhỏ đến lớn)
+            const initialDisplay = [...searchCache].slice(0, 5).sort((a, b) => a.id - b.id);
+            
+            mainContent.innerHTML = renderDashboardHTML(stats, initialDisplay, user);
+            initDashboardSearch(searchCache);
             return;
         } catch (err) {
             console.error('[Dashboard] Lỗi tải dữ liệu:', err);
@@ -298,8 +313,15 @@ async function loadDashboard() {
         soDienThoai:    c.phone,
         trangThaiKhach: getStatusLabel(c.status)
     })) : [];
-    mainContent.innerHTML = renderDashboardHTML(stats, customers, user);
-    initDashboardSearch(customers);
+    
+    // Sắp xếp giảm dần để cache tìm kiếm hoạt động chính xác
+    const searchCache = [...customers].sort((a, b) => b.maKhachHang - a.maKhachHang);
+    
+    // Lấy 5 khách hàng mới nhất và sắp xếp tăng dần để hiển thị từ nhỏ đến lớn
+    const initialDisplay = [...searchCache].slice(0, 5).sort((a, b) => a.maKhachHang - b.maKhachHang);
+    
+    mainContent.innerHTML = renderDashboardHTML(stats, initialDisplay, user);
+    initDashboardSearch(searchCache);
 }
 
 function loadAdminDashboard() {
@@ -472,7 +494,14 @@ function renderDashboardCustomersTable(customers) {
     const user = AUTH.getCurrentUser();
     const canDelete = user && user.role !== 'employee';
 
-    const rows = customers.slice(0, 5).map(c => {
+    // Lấy 5 khách hàng mới nhất trong kết quả lọc, sau đó sắp xếp tăng dần theo ID để hiển thị từ nhỏ đến lớn
+    const displayCustomers = customers.slice(0, 5).sort((a, b) => {
+        const idA = a.maKhachHang ?? a.id ?? 0;
+        const idB = b.maKhachHang ?? b.id ?? 0;
+        return idA - idB;
+    });
+
+    const rows = displayCustomers.map(c => {
         const id = c.maKhachHang ?? c.id;
         const name = c.hoTen ?? c.name ?? '';
         const email = c.email ?? '';

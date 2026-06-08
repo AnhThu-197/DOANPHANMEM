@@ -74,7 +74,8 @@ async function loadCustomers() {
         try {
             const response = await API_SERVICES.khachHang.list();
             const list = response.data || response;
-            DATA.customers = list.map(mapBackendCustomerToFrontend);
+            DATA.customers = list.map(mapBackendCustomerToFrontend)
+                .sort((a, b) => a.id - b.id);
         } catch (error) {
             console.error('Lỗi khi tải khách hàng:', error);
             mainContent.innerHTML = `
@@ -852,8 +853,14 @@ async function saveDetailInteraction(e) {
         
         await openCustomerDetailModal(customerId);
 
-        // Reload danh sách khách hàng để cập nhật "Tương tác cuối" ngoài bảng
-        await loadCustomers();
+        // Reload trang nền đang hiển thị (Tổng quan hoặc Khách hàng) để cập nhật tương tác cuối
+        const activeMenu = document.querySelector('.sidebar-menu li.active');
+        const currentPage = activeMenu ? activeMenu.dataset.page : 'customers';
+        if (currentPage === 'dashboard') {
+            await loadDashboard();
+        } else {
+            await loadCustomers();
+        }
     } catch (err) {
         console.error('Lỗi lưu tương tác:', err);
         alert('❌ Không thể lưu tương tác: ' + (err.message || 'Lỗi hệ thống'));
@@ -900,6 +907,8 @@ async function editCustomerDetailInteraction(event, interactionId, customerId) {
         
         const modal = document.getElementById('interactionModal');
         modal.dataset.interactionId = interactionId;
+        modal.dataset.openedFromDetail = "true";
+        modal.dataset.parentCustomerId = resolvedCustomerId;
         modal.querySelector('h2').textContent = 'Cập nhật Tương tác';
 
         // Điền dữ liệu vào form sửa
@@ -955,8 +964,14 @@ async function deleteCustomerDetailInteraction(event, interactionId, customerId)
         alert('✓ Đã xóa tương tác thành công!');
         // Refresh danh sách tương tác trong modal chi tiết
         await openCustomerDetailModal(customerId);
-        // Tải lại bảng khách hàng bên ngoài để cập nhật cột tương tác cuối
-        await loadCustomers();
+        // Tải lại bảng bên ngoài (Dashboard hoặc Customers) để cập nhật cột tương tác cuối
+        const activeMenu = document.querySelector('.sidebar-menu li.active');
+        const currentPage = activeMenu ? activeMenu.dataset.page : 'customers';
+        if (currentPage === 'dashboard') {
+            await loadDashboard();
+        } else {
+            await loadCustomers();
+        }
     } catch (error) {
         console.error('Lỗi xóa tương tác:', error);
         alert('❌ Xóa tương tác thất bại: ' + (error.message || 'Lỗi hệ thống'));
@@ -1496,7 +1511,8 @@ async function loadCustomersFromBackend() {
             return;
         }
 
-        DATA.customers = apiData.map(mapKhachHangBackendToCustomerUI);
+        DATA.customers = apiData.map(mapKhachHangBackendToCustomerUI)
+            .sort((a, b) => a.id - b.id);
 
         console.log('Đã tải khách hàng từ backend:', DATA.customers);
     } catch (error) {

@@ -29,6 +29,18 @@ function closeModal(modalId) {
     if (modal) {
         modal.style.display = 'none';
         document.body.classList.remove('modal-open');
+        
+        // Tự động mở lại modal chi tiết khách hàng nếu đóng modal tương tác được mở từ chi tiết
+        if (modalId === 'interactionModal') {
+            const openedFromDetail = modal.dataset.openedFromDetail === "true";
+            const parentCustomerId = modal.dataset.parentCustomerId;
+            if (openedFromDetail && parentCustomerId) {
+                modal.dataset.openedFromDetail = "false";
+                if (typeof openCustomerDetailModal === 'function') {
+                    openCustomerDetailModal(parseInt(parentCustomerId));
+                }
+            }
+        }
     }
 }
 

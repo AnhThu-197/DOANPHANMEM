@@ -37,14 +37,22 @@ function getRoleLabel(role) {
     return labels[role] || role;
 }
 
-// Map trangThaiKhach từ BE sang CSS class và label FE
+// Map trangThaiKhach từ BE/FE sang CSS class và label FE
 function mapTrangThaiKhach(trangThai) {
     const map = {
+        // Backend strings
         'Người truy cập':   { cssClass: 'suspect',    label: 'Người truy cập' },
         'KH tiềm năng mới': { cssClass: 'lead',       label: 'Khách hàng tiềm năng mới' },
         'KH triển vọng':    { cssClass: 'prospect',   label: 'Khách hàng triển vọng' },
         'KH chính thức':    { cssClass: 'customer',   label: 'Khách hàng chính thức' },
-        'KH trung thành':   { cssClass: 'evangelist', label: 'Khách hàng trung thành' }
+        'KH trung thành':   { cssClass: 'evangelist', label: 'Khách hàng trung thành' },
+        
+        // Frontend codes fallback
+        'suspect':          { cssClass: 'suspect',    label: 'Người truy cập' },
+        'lead':             { cssClass: 'lead',       label: 'Khách hàng tiềm năng mới' },
+        'prospect':         { cssClass: 'prospect',   label: 'Khách hàng triển vọng' },
+        'customer':         { cssClass: 'customer',   label: 'Khách hàng chính thức' },
+        'evangelist':       { cssClass: 'evangelist', label: 'Khách hàng trung thành' }
     };
     return map[trangThai] || { cssClass: 'suspect', label: trangThai || 'Không rõ' };
 }

@@ -204,8 +204,26 @@ async function deleteInteractionAttachment(interactionId, fileId) {
         alert('✓ Đã xóa tệp đính kèm thành công!');
         
         // Refresh giao diện
+        const modal = document.getElementById('interactionModal');
+        const openedFromDetail = modal.dataset.openedFromDetail === "true";
+        const parentCustomerId = modal.dataset.parentCustomerId;
+
+        modal.dataset.openedFromDetail = "false";
         closeModal('interactionModal');
-        await loadInteractions();
+        
+        if (openedFromDetail && parentCustomerId) {
+            await openCustomerDetailModal(parseInt(parentCustomerId));
+            
+            const activeMenu = document.querySelector('.sidebar-menu li.active');
+            const currentPage = activeMenu ? activeMenu.dataset.page : 'customers';
+            if (currentPage === 'dashboard') {
+                await loadDashboard();
+            } else {
+                await loadCustomers();
+            }
+        } else {
+            await loadInteractions();
+        }
     } catch (err) {
         console.error('Lỗi xóa tệp đính kèm:', err);
         alert('❌ Không thể xóa tệp: ' + (err.message || 'Lỗi hệ thống'));
@@ -285,8 +303,25 @@ async function saveInteraction(e) {
             alert('✓ Thêm tương tác thành công!');
         }
 
+        const openedFromDetail = modal.dataset.openedFromDetail === "true";
+        const parentCustomerId = modal.dataset.parentCustomerId;
+
+        modal.dataset.openedFromDetail = "false";
         closeModal('interactionModal');
-        await loadInteractions();
+        
+        if (openedFromDetail && parentCustomerId) {
+            await openCustomerDetailModal(parseInt(parentCustomerId));
+            
+            const activeMenu = document.querySelector('.sidebar-menu li.active');
+            const currentPage = activeMenu ? activeMenu.dataset.page : 'customers';
+            if (currentPage === 'dashboard') {
+                await loadDashboard();
+            } else {
+                await loadCustomers();
+            }
+        } else {
+            await loadInteractions();
+        }
 
     } catch (error) {
         console.error('Lỗi lưu tương tác:', error);

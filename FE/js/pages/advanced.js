@@ -417,11 +417,11 @@ function viewTrialDetail(trialId) {
     if (isExpired) {
         statusBox.style.background = '#fee2e2';
         statusBox.style.borderColor = '#ef4444';
-        statusBox.innerHTML = '<strong style="color: #991b1b;"><i class="fas fa-exclamation-circle"></i> Đã hết hạn dùng thử</strong><p style="margin: 4px 0 0 0; color: #991b1b; font-size: 13px;">Khách hàng cần được chuyển đổi hoặc gia hạn</p>';
+        statusBox.innerHTML = '<strong style="color: #991b1b;"><i class="fas fa-exclamation-circle"></i> Đã hết hạn dùng thử</strong><p style="margin: 4px 0 0 0; color: #991b1b; font-size: 13px;">Khách hàng cần được gia hạn hoặc xử lý</p>';
     } else if (daysLeft <= 7) {
         statusBox.style.background = '#fef3c7';
         statusBox.style.borderColor = '#f59e0b';
-        statusBox.innerHTML = '<strong style="color: #92400e;"><i class="fas fa-clock"></i> Sắp hết hạn</strong><p style="margin: 4px 0 0 0; color: #92400e; font-size: 13px;">Cần liên hệ khách hàng để chuyển đổi hoặc gia hạn</p>';
+        statusBox.innerHTML = '<strong style="color: #92400e;"><i class="fas fa-clock"></i> Sắp hết hạn</strong><p style="margin: 4px 0 0 0; color: #92400e; font-size: 13px;">Cần liên hệ khách hàng để gia hạn hoặc xử lý</p>';
     } else {
         statusBox.style.background = '#dcfce7';
         statusBox.style.borderColor = '#10b981';
@@ -434,10 +434,6 @@ function viewTrialDetail(trialId) {
         editTrial(trialId);
     };
     document.getElementById('trialDetailDeleteBtn').onclick = () => deleteTrial(trialId);
-    document.getElementById('trialDetailConvertBtn').onclick = () => {
-        closeModal('trialDetailModal');
-        openConvertTrialModal(trialId);
-    };
     
     // Open modal
     openModal('trialDetailModal');
@@ -497,93 +493,7 @@ async function deleteTrial(trialId) {
     await loadTrialManagement();
 }
 
-function openConvertTrialModal(trialId) {
-    const isApiSession = AUTH.getCurrentUser()?.authSource === 'api';
-    let trial = null;
-    if (isApiSession) {
-        trial = window.CURRENT_TRIALS?.find(item => Number(item.id) === Number(trialId));
-    } else {
-        trial = DATA.trialCustomers.find(item => Number(item.id) === Number(trialId));
-    }
-    if (!trial) return;
-    
-    document.getElementById('convertTrialCustomerName').textContent = trial.customerName;
-    document.getElementById('convertTrialForm').dataset.trialId = trialId;
-    
-    openModal('convertTrialModal');
-}
 
-async function saveConvertTrial(e) {
-    e.preventDefault();
-    
-    const trialId = e.target.dataset.trialId;
-    const isApiSession = AUTH.getCurrentUser()?.authSource === 'api';
-    let trial = null;
-    if (isApiSession) {
-        trial = window.CURRENT_TRIALS?.find(item => Number(item.id) === Number(trialId));
-    } else {
-        trial = DATA.trialCustomers.find(item => Number(item.id) === Number(trialId));
-    }
-    if (!trial) return;
-    
-    const newStatus = document.getElementById('convertTrialNewStatus').value;
-    const contractDate = document.getElementById('convertTrialContractDate').value;
-    const contractValue = document.getElementById('convertTrialContractValue').value;
-    const notes = document.getElementById('convertTrialNotes').value;
-    
-    if (isApiSession) {
-        try {
-            await API_SERVICES.khachHang.updateTrial(trialId, {
-                status: 'Đã chuyển đổi'
-            });
-            
-            const customerRes = await API_SERVICES.khachHang.detail(trialId);
-            const customer = customerRes.data || customerRes;
-            
-            const payload = {
-                hoTen: customer.hoTen,
-                email: customer.email,
-                soDienThoai: customer.soDienThoai,
-                gioiTinh: customer.gioiTinh,
-                ngaySinh: customer.ngaySinh,
-                congTy: customer.congTy,
-                chucVuTaiCongTy: customer.chucVuTaiCongTy,
-                websiteCongTy: customer.websiteCongTy,
-                diaChiChiTiet: customer.diaChiChiTiet,
-                trangThaiKhach: newStatus,
-                diemTiemNang: customer.diemTiemNang || 0,
-                maNguoiPhuTrach: customer.maNguoiPhuTrach
-            };
-            
-            await API_SERVICES.khachHang.update(trialId, payload);
-            showNotification(`Chuyển đổi ${trial.customerName} thành công!`, 'success');
-        } catch (error) {
-            console.error('Error converting trial:', error);
-            showNotification('Không thể chuyển đổi dùng thử', 'danger');
-            return;
-        }
-    } else {
-        // Update customer status
-        const customer = DATA.customers.find(c => Number(c.id) === Number(trial.customerId));
-        if (customer) {
-            customer.status = newStatus;
-            customer.trialStartDate = null;
-            customer.trialDays = 0;
-        }
-        
-        // Remove from trial list
-        DATA.trialCustomers = DATA.trialCustomers.filter(item => Number(item.id) !== Number(trialId));
-        showNotification(`Chuyển đổi ${trial.customerName} thành công!`, 'success');
-    }
-    
-    // Add to audit log
-    if (typeof DATA.addAuditLog === 'function') {
-        DATA.addAuditLog('CONVERT_TRIAL', `Chuyển đổi ${trial.customerName} sang khách hàng chính thức`, AUTH.getCurrentUser()?.id);
-    }
-    
-    closeModal('convertTrialModal');
-    await loadTrialManagement();
-}
 
 function extendTrial(trialId) {
     const isApiSession = AUTH.getCurrentUser()?.authSource === 'api';
@@ -669,20 +579,7 @@ async function saveExtendTrial(e) {
     await loadTrialManagement();
 }
 
-function convertTrialToCustomer() {
-    const customerName = document.getElementById('trialDetailCustomer').textContent;
-    const isApiSession = AUTH.getCurrentUser()?.authSource === 'api';
-    let trial = null;
-    if (isApiSession) {
-        trial = window.CURRENT_TRIALS?.find(t => t.customerName === customerName);
-    } else {
-        trial = DATA.trialCustomers.find(t => t.customerName === customerName);
-    }
-    if (trial) {
-        closeModal('trialDetailModal');
-        openConvertTrialModal(trial.id);
-    }
-}
+
 
 async function loadAutomation() {
     const content = document.getElementById('mainContent');

@@ -148,4 +148,94 @@ public class EmailService {
 
         sendHtmlEmail(toEmail, "[CRM] Nhac nho: " + reminderTitle, html);
     }
+
+    // ----------------------------------------------------------------
+    // Gửi email kích hoạt dùng thử
+    // ----------------------------------------------------------------
+    public void sendTrialActivationEmail(String toEmail, String customerName, int durationDays) {
+        String html =
+            "<!DOCTYPE html><html><head><meta charset='utf-8'><style>" +
+            "body{font-family:Arial,sans-serif;background:#f8fafc;margin:0;padding:20px}" +
+            ".box{max-width:520px;margin:0 auto;background:#fff;border-radius:10px;" +
+            "border:1px solid #e2e8f0;padding:30px}" +
+            ".hdr{text-align:center;color:#0284c7;margin-bottom:20px}" +
+            ".badge{display:inline-block;background:#e0f2fe;color:#0369a1;" +
+            "padding:6px 12px;border-radius:999px;font-weight:bold;font-size:14px}" +
+            ".details{background:#f1f5f9;border-radius:8px;padding:20px;margin:20px 0}" +
+            ".details table{width:100%;border-collapse:collapse}" +
+            ".details td{padding:8px 0;font-size:14px;color:#334155}" +
+            ".details td.lbl{font-weight:bold;width:140px;color:#475569}" +
+            ".btn-box{text-align:center;margin-top:25px}" +
+            ".btn{display:inline-block;background:#0284c7;color:#fff;padding:12px 24px;" +
+            "text-decoration:none;border-radius:6px;font-weight:bold;font-size:15px}" +
+            "</style></head><body>" +
+            "<div class='box'>" +
+            "<div class='hdr'>" +
+            "<h2 style='margin:0 0 10px 0;'>Kích Hoạt Dùng Thử Thành Công</h2>" +
+            "<span class='badge'>Hệ thống CRM Nhóm 8</span>" +
+            "</div>" +
+            "<p>Kính chào quý khách <b>" + customerName + "</b>,</p>" +
+            "<p>Yêu cầu đăng ký dùng thử phần mềm của quý khách đã được duyệt và kích hoạt thành công trên hệ thống. Dưới đây là thông tin chi tiết:</p>" +
+            "<div class='details'>" +
+            "<table>" +
+            "<tr><td class='lbl'>Khách hàng:</td><td>" + customerName + "</td></tr>" +
+            "<tr><td class='lbl'>Thời gian dùng thử:</td><td><b>" + durationDays + " ngày</b></td></tr>" +
+            "<tr><td class='lbl'>Trạng thái:</td><td style='color:#16a34a;font-weight:bold'>Đang dùng thử</td></tr>" +
+            "</table>" +
+            "</div>" +
+            "<p>Trong quá trình dùng thử, nếu quý khách cần bất kỳ sự hỗ trợ nào về tính năng hoặc giải pháp, vui lòng liên hệ nhân viên phụ trách hoặc phản hồi lại email này.</p>" +
+            "<div class='btn-box'>" +
+            "<a href='#' class='btn'>Truy cập hệ thống CRM</a>" +
+            "</div>" +
+            "<hr style='border:none;border-top:1px solid #e2e8f0;margin:35px 0 20px 0'/>" +
+            "<p style='color:#94a3b8;font-size:12px;text-align:center'>Email được gửi tự động từ hệ thống CRM Nhóm 8 &copy; 2026</p>" +
+            "</div></body></html>";
+
+        sendHtmlEmail(toEmail, "[CRM] Kich hoat dung thu phan mem thanh cong", html);
+    }
+
+    // ----------------------------------------------------------------
+    // Gửi email gia hạn dùng thử
+    // ----------------------------------------------------------------
+    public void sendTrialExtensionEmail(String toEmail, String customerName, int newDurationDays) {
+        String html =
+            "<!DOCTYPE html><html><head><meta charset='utf-8'><style>" +
+            "body{font-family:Arial,sans-serif;background:#f8fafc;margin:0;padding:20px}" +
+            ".box{max-width:520px;margin:0 auto;background:#fff;border-radius:10px;" +
+            "border:1px solid #e2e8f0;padding:30px}" +
+            ".hdr{text-align:center;color:#0284c7;margin-bottom:20px}" +
+            ".badge{display:inline-block;background:#e0f2fe;color:#0369a1;" +
+            "padding:6px 12px;border-radius:999px;font-weight:bold;font-size:14px}" +
+            ".details{background:#f1f5f9;border-radius:8px;padding:20px;margin:20px 0}" +
+            ".details table{width:100%;border-collapse:collapse}" +
+            ".details td{padding:8px 0;font-size:14px;color:#334155}" +
+            ".details td.lbl{font-weight:bold;width:140px;color:#475569}" +
+            ".btn-box{text-align:center;margin-top:25px}" +
+            ".btn{display:inline-block;background:#0284c7;color:#fff;padding:12px 24px;" +
+            "text-decoration:none;border-radius:6px;font-weight:bold;font-size:15px}" +
+            "</style></head><body>" +
+            "<div class='box'>" +
+            "<div class='hdr'>" +
+            "<h2 style='margin:0 0 10px 0;'>Gia Hạn Dùng Thử Thành Công</h2>" +
+            "<span class='badge'>Hệ thống CRM Nhóm 8</span>" +
+            "</div>" +
+            "<p>Kính chào quý khách <b>" + customerName + "</b>,</p>" +
+            "<p>Thời gian dùng thử phần mềm của quý khách đã được gia hạn thành công. Dưới đây là thông tin gia hạn chi tiết:</p>" +
+            "<div class='details'>" +
+            "<table>" +
+            "<tr><td class='lbl'>Khách hàng:</td><td>" + customerName + "</td></tr>" +
+            "<tr><td class='lbl'>Thời gian dùng thử mới:</td><td><b>" + newDurationDays + " ngày</b></td></tr>" +
+            "<tr><td class='lbl'>Trạng thái:</td><td style='color:#0284c7;font-weight:bold'>Đã gia hạn</td></tr>" +
+            "</table>" +
+            "</div>" +
+            "<p>Nếu quý khách cần hỗ trợ thêm thông tin hoặc tư vấn giải pháp, vui lòng liên hệ nhân viên phụ trách hoặc phản hồi lại email này.</p>" +
+            "<div class='btn-box'>" +
+            "<a href='#' class='btn'>Truy cập hệ thống CRM</a>" +
+            "</div>" +
+            "<hr style='border:none;border-top:1px solid #e2e8f0;margin:35px 0 20px 0'/>" +
+            "<p style='color:#94a3b8;font-size:12px;text-align:center'>Email được gửi tự động từ hệ thống CRM Nhóm 8 &copy; 2026</p>" +
+            "</div></body></html>";
+
+        sendHtmlEmail(toEmail, "[CRM] Gia han dung thu phan mem thanh cong", html);
+    }
 }

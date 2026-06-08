@@ -1070,15 +1070,6 @@
       </button>
       <button
         type="button"
-        class="btn"
-        id="trialDetailConvertBtn"
-        onclick="convertTrialToCustomer()"
-        style="background: #10b981; color: white; border-color: #10b981;"
-      >
-        <i class="fas fa-check-circle"></i> Chuyển đổi
-      </button>
-      <button
-        type="button"
         class="btn btn-danger"
         id="trialDetailDeleteBtn"
         onclick="deleteTrialFromDetail()"
@@ -1089,81 +1080,6 @@
   </div>
 </div>
 
-<!-- Modal chuyển đổi sang khách hàng chính thức -->
-<div id="convertTrialModal" class="modal">
-  <div class="modal-content">
-    <div class="modal-header">
-      <h2>Chuyển đổi sang Khách hàng Chính thức</h2>
-      <button class="close-btn" onclick="closeModal('convertTrialModal')">
-        &times;
-      </button>
-    </div>
-    <form id="convertTrialForm" onsubmit="saveConvertTrial(event)">
-      <div class="success-box">
-        <h4><i class="fas fa-check-circle"></i> Xác nhận chuyển đổi</h4>
-        <p style="margin: 8px 0 0 0; font-size: 14px;">
-          Khách hàng <strong id="convertTrialCustomerName"></strong> sẽ được chuyển từ trạng thái 
-          <strong>Dùng thử</strong> sang <strong>Khách hàng chính thức</strong>.
-        </p>
-      </div>
-
-      <div class="form-group" style="margin-top: 16px;">
-        <label for="convertTrialNewStatus">Trạng thái mới *</label>
-        <select id="convertTrialNewStatus" required>
-          <option value="customer">Khách hàng chính thức</option>
-          <option value="evangelist">Khách hàng trung thành</option>
-        </select>
-      </div>
-
-      <div class="form-group">
-        <label for="convertTrialContractDate">Ngày ký hợp đồng</label>
-        <input type="date" id="convertTrialContractDate" />
-      </div>
-
-      <div class="form-group">
-        <label for="convertTrialContractValue">Giá trị hợp đồng (VND)</label>
-        <input 
-          type="number" 
-          id="convertTrialContractValue" 
-          min="0" 
-          step="1000"
-          placeholder="0"
-        />
-      </div>
-
-      <div class="form-group">
-        <label for="convertTrialNotes">Ghi chú chuyển đổi</label>
-        <textarea 
-          id="convertTrialNotes" 
-          rows="3"
-          placeholder="Ghi chú về quá trình chuyển đổi, điều kiện hợp đồng..."
-        ></textarea>
-      </div>
-
-      <div class="info-box">
-        <h4><i class="fas fa-info-circle"></i> Sau khi chuyển đổi</h4>
-        <ul style="margin: 8px 0 0 0; padding-left: 20px; font-size: 13px;">
-          <li>Khách hàng sẽ nhận email thông báo chuyển đổi thành công</li>
-          <li>Thông tin dùng thử sẽ được lưu vào lịch sử</li>
-          <li>Có thể tạo hợp đồng và theo dõi doanh thu</li>
-        </ul>
-      </div>
-
-      <div class="form-actions">
-        <button
-          type="button"
-          class="btn btn-secondary"
-          onclick="closeModal('convertTrialModal')"
-        >
-          Hủy
-        </button>
-        <button type="submit" class="btn btn-primary" style="background: #10b981; border-color: #10b981;">
-          <i class="fas fa-check-circle"></i> Xác nhận chuyển đổi
-        </button>
-      </div>
-    </form>
-  </div>
-</div>
 
 <!-- Modal gia hạn dùng thử -->
 <div id="extendTrialModal" class="modal">

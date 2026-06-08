@@ -7,6 +7,7 @@ import com.nhom8.crm.entity.*;
 import com.nhom8.crm.exception.ResourceNotFoundException;
 import com.nhom8.crm.repository.*;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,6 +18,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class KhachHangService {
 
     private final KhachHangRepository khachHangRepository;
@@ -25,6 +27,7 @@ public class KhachHangService {
     private final NguonKhachHangRepository nguonKhachHangRepository;
     private final PhuongXaRepository phuongXaRepository;
     private final ThongBaoRepository thongBaoRepository;
+    private final EmailService emailService;
 
     @jakarta.persistence.PersistenceContext
     private jakarta.persistence.EntityManager entityManager;
@@ -302,6 +305,9 @@ public class KhachHangService {
                 .filter(k -> !k.getDaXoa())
                 .orElseThrow(() -> new ResourceNotFoundException("Khách hàng", id));
 
+        Integer oldDuration = kh.getSoNgayDungThu();
+        String oldStatus = kh.getTrangThaiDungThu();
+
         if (request.getStartDate() != null) {
             kh.setNgayBatDauDungThu(request.getStartDate());
         }
@@ -315,6 +321,27 @@ public class KhachHangService {
         }
 
         khachHangRepository.save(kh);
+
+        // Gửi email nếu trạng thái dùng thử chuyển sang hoặc cập nhật thành "Đang dùng thử"
+        if ("Đang dùng thử".equals(kh.getTrangThaiDungThu())) {
+            if (oldStatus == null || !oldStatus.equals("Đang dùng thử")) {
+                try {
+                    if (kh.getEmail() != null && !kh.getEmail().isBlank()) {
+                        emailService.sendTrialActivationEmail(kh.getEmail(), kh.getHoTen(), kh.getSoNgayDungThu());
+                    }
+                } catch (Exception e) {
+                    log.error("Lỗi gửi email dùng thử cho khách hàng {}: {}", kh.getEmail(), e.getMessage(), e);
+                }
+            } else if (oldDuration != null && !oldDuration.equals(kh.getSoNgayDungThu())) {
+                try {
+                    if (kh.getEmail() != null && !kh.getEmail().isBlank()) {
+                        emailService.sendTrialExtensionEmail(kh.getEmail(), kh.getHoTen(), kh.getSoNgayDungThu());
+                    }
+                } catch (Exception e) {
+                    log.error("Lỗi gửi email gia hạn dùng thử cho khách hàng {}: {}", kh.getEmail(), e.getMessage(), e);
+                }
+            }
+        }
 
         return getTrialDetails(id);
     }
