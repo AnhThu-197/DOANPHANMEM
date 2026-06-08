@@ -67,19 +67,54 @@ document.addEventListener('keydown', function(e) {
  */
 if (typeof switchTab === 'undefined') {
     window.switchTab = function(tabName) {
-        const tabs = document.querySelectorAll('.tab-content');
-        const buttons = document.querySelectorAll('.tab-btn');
-
-        tabs.forEach(tab => tab.classList.remove('active'));
-        buttons.forEach(btn => btn.classList.remove('active'));
-
         const targetTab = document.getElementById(tabName);
-        if (targetTab) {
-            targetTab.classList.add('active');
+        if (!targetTab) return;
+
+        // 1. Chỉ deactivate các tab-content là anh em ruột (cùng cha) với targetTab
+        const parent = targetTab.parentElement;
+        if (parent) {
+            const siblingTabs = parent.querySelectorAll(':scope > .tab-content');
+            siblingTabs.forEach(t => t.classList.remove('active'));
         }
 
-        if (event && event.target) {
-            event.target.classList.add('active');
+        // Active tab-content được chọn
+        targetTab.classList.add('active');
+
+        // 2. Tìm nút tab-btn tương ứng và chỉ deactivate các nút cùng thanh tab
+        let clickedButton = null;
+        if (typeof window !== 'undefined' && window.event) {
+            const e = window.event;
+            if (e.currentTarget && e.currentTarget.classList.contains('tab-btn')) {
+                clickedButton = e.currentTarget;
+            } else if (e.target) {
+                clickedButton = e.target.closest('.tab-btn');
+            }
+        }
+
+        // Tìm tất cả các button có liên kết đến tabName này làm fallback
+        const buttons = document.querySelectorAll('.tab-btn');
+        const targetButtons = [];
+        buttons.forEach(btn => {
+            const onclickAttr = btn.getAttribute('onclick');
+            if (onclickAttr && (onclickAttr.includes(`'${tabName}'`) || onclickAttr.includes(`"${tabName}"`))) {
+                targetButtons.push(btn);
+            }
+        });
+
+        if (clickedButton) {
+            const tabsContainer = clickedButton.closest('.tabs');
+            if (tabsContainer) {
+                tabsContainer.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            }
+            clickedButton.classList.add('active');
+        } else {
+            targetButtons.forEach(btn => {
+                const tabsContainer = btn.closest('.tabs');
+                if (tabsContainer) {
+                    tabsContainer.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                }
+                btn.classList.add('active');
+            });
         }
     };
 }
