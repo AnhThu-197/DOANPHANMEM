@@ -67,6 +67,8 @@ services:
       - backend
     ports:
       - "80:80"
+    volumes:
+      - ./FE:/usr/share/nginx/html
 
 volumes:
   mssql_data:

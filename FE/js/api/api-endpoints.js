@@ -32,6 +32,10 @@ const API_ENDPOINTS = {
     deletePermanently: (id) => `/khach-hang/${id}/permanent`,
     getTrial: (id) => `/khach-hang/${id}/dungthu`,
     updateTrial: (id) => `/khach-hang/${id}/dungthu`,
+    deleteRequests: "/khach-hang/yeu-cau-xoa",
+    submitDeleteRequest: "/khach-hang/yeu-cau-xoa",
+    approveDeleteRequest: (id) => `/khach-hang/yeu-cau-xoa/${id}/approve`,
+    rejectDeleteRequest: (id) => `/khach-hang/yeu-cau-xoa/${id}/reject`,
   },
 
   chienDich: {

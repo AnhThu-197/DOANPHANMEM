@@ -1490,7 +1490,7 @@ async function loadMergeDuplicates() {
                         </div>
                         <div style="margin:16px 0 12px 0; display:flex; align-items:center; gap:8px;">
                             <span style="font-size:13px; color:#64748b;">Độ tương đồng:</span>
-                            <span style="font-weight:600; background:#e0f2fe; color:#0369a1; padding:2px 8px; border-radius:4px; font-size:13px;">${item.similarity}%</span>
+                            <span style="font-weight:600; background:#e0f2fe; color:#0369a1; padding:2px 8px; border-radius:4px; font-size:13px;">${item.similarity <= 1 ? Math.round(item.similarity * 100) : item.similarity}%</span>
                         </div>
                         <div style="display:flex; gap:8px;">
                             <button class="btn btn-primary btn-sm" onclick="confirmMergeCustomers('${item.id}')"><i class="fas fa-compress-alt"></i> Gộp hai khách hàng</button>

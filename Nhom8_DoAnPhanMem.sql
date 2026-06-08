@@ -2,6 +2,8 @@
 -- HỆ THỐNG QUẢN LÝ KHÁCH HÀNG - BỘ PHẬN MARKETING CÔNG TY PHẦN MỀM
 -- Nhóm 8 - Đồ Án Phần Mềm
 -- ================================================================
+SET QUOTED_IDENTIFIER ON;
+SET ANSI_NULLS ON;
  
 -- LỆNH XÓA DATABASE NẾU TỒN TẠI
 IF EXISTS (SELECT * FROM sys.databases WHERE name = 'DoAnPhanMem_Nhom8')
@@ -456,6 +458,22 @@ CREATE TABLE CauHinhHeThong (
 );
 GO
 
+-- 31. Bảng Yêu Cầu Xóa Khách Hàng
+CREATE TABLE YeuCauXoa (
+    maYeuCau          INT IDENTITY(1,1) PRIMARY KEY,
+    maKhachHang       INT NOT NULL FOREIGN KEY REFERENCES KhachHang(maKhachHang),
+    maNguoiYeuCau     INT NOT NULL FOREIGN KEY REFERENCES NhanVien(maNhanVien),
+    lyDo              NVARCHAR(500) NOT NULL,
+    ngayYeuCau        DATETIME DEFAULT GETDATE(),
+    trangThai         NVARCHAR(50) DEFAULT N'Chờ duyệt' NOT NULL,
+    maNguoiDuyet      INT NULL FOREIGN KEY REFERENCES NhanVien(maNhanVien),
+    ngayDuyet         DATETIME NULL,
+    lyDoTuChoi        NVARCHAR(500) NULL,
+    CONSTRAINT CHK_TrangThaiYCX CHECK (trangThai IN (N'Chờ duyệt', N'Đã duyệt', N'Đã từ chối'))
+);
+GO
+
+
 -- ================================================================
 -- PHẦN 2: DỮ LIỆU MẪU
 -- ================================================================
@@ -516,7 +534,9 @@ INSERT INTO KhachHang (maNguoiPhuTrach, maNganhNghe, maNguonKH, maPhuongXa, hoTe
 (3, 2, 2, 2, N'Nguyễn Văn Bình', 'binh@xyz.vn', '0911000002', N'Nam', '1988-03-15', N'XYZ Corp', N'Kế toán trưởng', N'KH triển vọng', 50, GETDATE(), 14, N'Đang dùng thử'), 
 (4, 3, 3, 3, N'Trần Thị Cẩm', 'cam@shop.vn', '0911000003', N'Nữ', '1995-07-20', N'Shop Online', N'Chủ shop', N'KH chính thức', 80, NULL, 0, N'Đã chuyển đổi'), 
 (4, 4, 4, 1, N'Lê Hoàng Dũng', 'dung@edu.vn', '0911000004', N'Nam', '1985-11-01', N'Trường ABC', N'Hiệu trưởng', N'KH tiềm năng mới', 10, GETDATE(), 7, N'Đang dùng thử'), 
-(3, 5, 5, 2, N'Phạm Thị Em', 'em@clinic.vn', '0911000005', N'Nữ', '1992-09-25', N'Phòng khám', N'Bác sĩ', N'KH triển vọng', 35, GETDATE(), 21, N'Đang dùng thử');
+(3, 5, 5, 2, N'Phạm Thị Em', 'em@clinic.vn', '0911000005', N'Nữ', '1992-09-25', N'Phòng khám', N'Bác sĩ', N'KH triển vọng', 35, GETDATE(), 21, N'Đang dùng thử'),
+(3, 2, 2, 2, N'Nguyễn Văn Bình (Trùng lặp)', 'binh@xyz.vn', '0911000022', N'Nam', '1988-03-15', N'XYZ Corp', N'Kế toán', N'KH triển vọng', 50, GETDATE(), 14, N'Đang dùng thử'),
+(4, 3, 3, 3, N'Trần Thị Cẩm (Duplicate)', 'cam.duplicate@shop.vn', '0911000003', N'Nữ', '1995-07-20', N'Shop Online', N'Quản lý', N'KH chính thức', 80, NULL, 0, N'Đã chuyển đổi');
 
 -- Dữ liệu lịch sử phân bổ ban đầu cho khách hàng mẫu
 INSERT INTO LichSuPhanBoKhachHang (
@@ -1789,3 +1809,10 @@ UPDATE TaiKhoan SET matKhau = '$2a$10$MVWWGAhDXz096p6UNfynXOwYThXY.6SgPG1cTpb96.
 
 -- Kiem tra
 SELECT email, LEFT(matKhau, 20) FROM TaiKhoan WHERE email IN ('admin@gmail.com', 'anhthu@gmail.com', 'nv01@crm.vn');
+
+-- Chèn các kịch bản tự động hóa mẫu
+INSERT INTO QuyTacTuDongHoa (tenQuyTac, loaiQuyTac, moTa, dieuKienKichHoat, hanhDongThucHien, trangThaiQuyTac, soLanThucThi, maMauThongDiep)
+VALUES 
+(N'Chào mừng khách hàng mới', N'Kịch bản', N'Gửi email chào mừng tự động khi có khách hàng mới đăng ký', 'new_customer', '[]', 1, 145, 1),
+(N'Chúc mừng sinh nhật khách hàng', N'Kịch bản', N'Gửi lời chúc sinh nhật và ưu đãi đặc biệt qua Zalo', 'customer_birthday', '[]', 1, 89, 3),
+(N'Nhắc nhở dùng thử sắp hết hạn', N'Kịch bản', N'Gửi tin nhắn SMS nhắc nhở khi sắp hết hạn dùng thử', 'no_interaction', '[]', 1, 67, 2);

@@ -57,6 +57,13 @@ const API_SERVICES = {
       API_CLIENT.delete(API_ENDPOINTS.khachHang.deletePermanently(id)),
     getTrial: (id) => API_CLIENT.get(API_ENDPOINTS.khachHang.getTrial(id)),
     updateTrial: (id, payload) => API_CLIENT.put(API_ENDPOINTS.khachHang.updateTrial(id), payload),
+    deleteRequests: () => API_CLIENT.get(API_ENDPOINTS.khachHang.deleteRequests),
+    submitDeleteRequest: (payload) =>
+      API_CLIENT.post(API_ENDPOINTS.khachHang.submitDeleteRequest, payload),
+    approveDeleteRequest: (id, payload) =>
+      API_CLIENT.post(API_ENDPOINTS.khachHang.approveDeleteRequest(id), payload),
+    rejectDeleteRequest: (id, payload) =>
+      API_CLIENT.post(API_ENDPOINTS.khachHang.rejectDeleteRequest(id), payload),
   },
 
   chienDich: {

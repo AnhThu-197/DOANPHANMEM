@@ -106,8 +106,7 @@ async function loadCustomers() {
     );
 
     const canDelete = isManagerOrAdmin;
-
-    loadDeleteRequestsFromLocalStorage();
+    await loadDeleteRequestsFromBackend();
     
     await loadCustomersFromBackend();
     await loadEmployeesFromBackend();
@@ -610,7 +609,7 @@ function requestDeleteCustomer(customerId) {
     document.body.classList.add('modal-open');
 }
 
-function submitDeleteRequest(e) {
+async function submitDeleteRequest(e) {
     e.preventDefault();
 
     const customerId = parseInt(document.getElementById('requestDeleteForm').dataset.customerId);
@@ -641,42 +640,67 @@ function submitDeleteRequest(e) {
         return;
     }
 
-    const newId = Math.max(...DATA.deleteRequests.map(r => r.id || 0), 0) + 1;
+    const requestedById = user?.id || user?.maNhanVien || null;
+    if (!requestedById) {
+        alert('Không tìm thấy thông tin người yêu cầu. Vui lòng đăng nhập lại.');
+        return;
+    }
 
-    DATA.deleteRequests.push({
-        id: newId,
-        customerId: customerId,
-        customerName: customer.name,
-        reason: reason,
-        requestedBy: user?.name || user?.hoTen || user?.email || 'Nhân viên',
-        requestedById: user?.id || user?.maNhanVien || null,
-        requestedDate: new Date().toLocaleDateString('vi-VN'),
-        status: 'pending'
-    });
+    try {
+        await API_SERVICES.khachHang.submitDeleteRequest({
+            customerId: customerId,
+            requestedById: requestedById,
+            reason: reason
+        });
 
-    saveDeleteRequestsToLocalStorage();
-
-    alert('✓ Đề nghị xóa đã được gửi. Trưởng phòng sẽ duyệt.');
-
-    closeModal('requestDeleteModal');
-    loadCustomers();
+        alert('✓ Đề nghị xóa đã được gửi. Trưởng phòng sẽ duyệt.');
+        closeModal('requestDeleteModal');
+        await loadCustomers();
+    } catch (error) {
+        console.error('Lỗi gửi đề nghị xóa:', error);
+        alert('Gửi đề nghị xóa thất bại: ' + (error.message || 'Lỗi hệ thống'));
+    }
 }
 
-function saveDeleteRequestsToLocalStorage() {
-    localStorage.setItem('deleteRequests', JSON.stringify(DATA.deleteRequests || []));
-}
+async function loadDeleteRequestsFromBackend() {
+    try {
+        const response = await API_SERVICES.khachHang.deleteRequests();
+        const rawList = response.data || response || [];
+        DATA.deleteRequests = rawList.map(req => {
+            let status = 'pending';
+            if (req.trangThai === 'Đã duyệt') status = 'approved';
+            if (req.trangThai === 'Từ chối') status = 'rejected';
 
-function loadDeleteRequestsFromLocalStorage() {
-    const saved = localStorage.getItem('deleteRequests');
+            let requestedDateStr = '';
+            if (req.ngayYeuCau) {
+                const d = new Date(req.ngayYeuCau);
+                requestedDateStr = d.toLocaleDateString('vi-VN') + ' ' + d.toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'});
+            }
 
-    if (saved) {
-        try {
-            DATA.deleteRequests = JSON.parse(saved);
-        } catch (error) {
-            console.error('Lỗi đọc deleteRequests từ localStorage:', error);
-            DATA.deleteRequests = DATA.deleteRequests || [];
-        }
-    } else {
+            let approvedDateStr = '';
+            if (req.ngayDuyet) {
+                const d = new Date(req.ngayDuyet);
+                approvedDateStr = d.toLocaleDateString('vi-VN') + ' ' + d.toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'});
+            }
+
+            return {
+                id: req.maYeuCau,
+                customerId: req.khachHang ? req.khachHang.maKhachHang : null,
+                customerName: req.khachHang ? req.khachHang.hoTen : 'Không rõ',
+                reason: req.lyDo || '',
+                requestedBy: req.nguoiYeuCau ? req.nguoiYeuCau.hoTen : 'Nhân viên',
+                requestedById: req.nguoiYeuCau ? req.nguoiYeuCau.maNhanVien : null,
+                requestedDate: requestedDateStr,
+                status: status,
+                approvedBy: req.nguoiDuyet ? req.nguoiDuyet.hoTen : '',
+                approvedDate: approvedDateStr,
+                rejectedBy: req.nguoiDuyet ? req.nguoiDuyet.hoTen : '',
+                rejectedDate: approvedDateStr,
+                rejectReason: req.lyDoTuChoi || ''
+            };
+        });
+    } catch (error) {
+        console.error('Lỗi khi tải đề nghị xóa từ backend:', error);
         DATA.deleteRequests = DATA.deleteRequests || [];
     }
 }
@@ -693,25 +717,27 @@ async function approveDeleteRequest(requestId) {
         return;
     }
 
+    const user = AUTH.getCurrentUser();
+    const maNguoiDuyet = user?.id || user?.maNhanVien || null;
+    if (!maNguoiDuyet) {
+        alert('Không tìm thấy thông tin người duyệt. Vui lòng đăng nhập lại.');
+        return;
+    }
+
     try {
-        await API_SERVICES.khachHang.delete(req.customerId, req.reason);
-
-        req.status = 'approved';
-        req.approvedBy = AUTH.getCurrentUser()?.name || AUTH.getCurrentUser()?.hoTen || 'Trưởng phòng';
-        req.approvedDate = new Date().toLocaleDateString('vi-VN');
-
-        saveDeleteRequestsToLocalStorage();
+        await API_SERVICES.khachHang.approveDeleteRequest(requestId, {
+            maNguoiDuyet: maNguoiDuyet
+        });
 
         alert('✓ Đã duyệt và chuyển khách hàng vào Thùng rác.');
-
         await loadCustomers();
     } catch (error) {
         console.error('Lỗi duyệt xóa khách hàng:', error);
-        alert('Duyệt xóa thất bại. Kiểm tra F12 → Network → DELETE /khach-hang/{id}.');
+        alert('Duyệt xóa thất bại: ' + (error.message || 'Lỗi hệ thống'));
     }
 }
 
-function rejectDeleteRequest(requestId) {
+async function rejectDeleteRequest(requestId) {
     const req = DATA.deleteRequests.find(r => r.id === requestId);
 
     if (!req) {
@@ -730,14 +756,25 @@ function rejectDeleteRequest(requestId) {
         return;
     }
 
-    req.status = 'rejected';
-    req.rejectedBy = AUTH.getCurrentUser()?.name || AUTH.getCurrentUser()?.hoTen || 'Trưởng phòng';
-    req.rejectedDate = new Date().toLocaleDateString('vi-VN');
-    req.rejectReason = reason.trim();
+    const user = AUTH.getCurrentUser();
+    const maNguoiDuyet = user?.id || user?.maNhanVien || null;
+    if (!maNguoiDuyet) {
+        alert('Không tìm thấy thông tin người duyệt. Vui lòng đăng nhập lại.');
+        return;
+    }
 
-    saveDeleteRequestsToLocalStorage();
+    try {
+        await API_SERVICES.khachHang.rejectDeleteRequest(requestId, {
+            maNguoiDuyet: maNguoiDuyet,
+            reason: reason.trim()
+        });
 
-    alert('✓ Đã từ chối đề nghị xóa.');
+        alert('✓ Đã từ chối đề nghị xóa.');
+        await loadCustomers();
+    } catch (error) {
+        console.error('Lỗi từ chối đề nghị xóa:', error);
+        alert('Từ chối đề nghị xóa thất bại: ' + (error.message || 'Lỗi hệ thống'));
+    }
 
     loadCustomers();
 }
